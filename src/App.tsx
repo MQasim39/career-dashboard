@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { ResumesProvider } from "@/hooks/use-resumes";
 import { SettingsProvider } from "@/hooks/use-settings";
+import { ThemeProvider } from "@/hooks/use-theme";
 import MainLayout from "@/components/layout/MainLayout";
 import Dashboard from "@/pages/Dashboard";
 import Jobs from "@/pages/Jobs";
@@ -26,24 +27,26 @@ document.head.appendChild(fontStyles);
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <SettingsProvider>
-      <ResumesProvider>
-        <TooltipProvider>
-          <Toaster />
-          <Sonner />
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<MainLayout />}>
-                <Route index element={<Dashboard />} />
-                <Route path="jobs" element={<Jobs />} />
-                <Route path="resumes" element={<Resumes />} />
-                <Route path="agent" element={<Agent />} />
-                <Route path="settings" element={<Settings />} />
-              </Route>
-              <Route path="*" element={<NotFound />} />
-            </Routes>
-          </BrowserRouter>
-        </TooltipProvider>
-      </ResumesProvider>
+      <ThemeProvider>
+        <ResumesProvider>
+          <TooltipProvider>
+            <Toaster />
+            <Sonner />
+            <BrowserRouter>
+              <Routes>
+                <Route path="/" element={<MainLayout />}>
+                  <Route index element={<Dashboard />} />
+                  <Route path="jobs" element={<Jobs />} />
+                  <Route path="resumes" element={<Resumes />} />
+                  <Route path="agent" element={<Agent />} />
+                  <Route path="settings" element={<Settings />} />
+                </Route>
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </BrowserRouter>
+          </TooltipProvider>
+        </ResumesProvider>
+      </ThemeProvider>
     </SettingsProvider>
   </QueryClientProvider>
 );

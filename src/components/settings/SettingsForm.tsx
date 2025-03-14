@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/hooks/use-settings";
+import { toast } from "sonner";
 
 const SettingsForm = () => {
   const { toast } = useToast();
@@ -69,6 +70,19 @@ const SettingsForm = () => {
       title: "Settings saved",
       description: "Your preferences have been updated",
     });
+    
+    // Also show a sonner toast for immediate feedback
+    toast("Settings updated", {
+      description: "Your theme and accent color preferences have been applied",
+    });
+  };
+
+  const handleThemeChange = (value: string) => {
+    setColorTheme(value);
+  };
+  
+  const handleAccentChange = (value: string) => {
+    setAccentColor(value);
   };
 
   return (
@@ -155,7 +169,7 @@ const SettingsForm = () => {
         <CardContent className="space-y-4">
           <div className="space-y-2">
             <Label htmlFor="theme">Theme</Label>
-            <Select value={colorTheme} onValueChange={setColorTheme}>
+            <Select value={colorTheme} onValueChange={handleThemeChange}>
               <SelectTrigger id="theme">
                 <SelectValue placeholder="Select theme" />
               </SelectTrigger>
@@ -169,7 +183,7 @@ const SettingsForm = () => {
           
           <div className="space-y-2">
             <Label htmlFor="accent-color">Accent Color</Label>
-            <Select value={accentColor} onValueChange={setAccentColor}>
+            <Select value={accentColor} onValueChange={handleAccentChange}>
               <SelectTrigger id="accent-color">
                 <SelectValue placeholder="Select accent color" />
               </SelectTrigger>
@@ -181,6 +195,13 @@ const SettingsForm = () => {
                 <SelectItem value="pink">Pink</SelectItem>
               </SelectContent>
             </Select>
+            <div className="flex gap-2 mt-2">
+              <div className={`w-6 h-6 rounded-full bg-primary ${accentColor === 'purple' ? 'ring-2 ring-foreground' : ''}`} />
+              <div className={`w-6 h-6 rounded-full bg-blue-500 ${accentColor === 'blue' ? 'ring-2 ring-foreground' : ''}`} />
+              <div className={`w-6 h-6 rounded-full bg-green-500 ${accentColor === 'green' ? 'ring-2 ring-foreground' : ''}`} />
+              <div className={`w-6 h-6 rounded-full bg-orange-500 ${accentColor === 'orange' ? 'ring-2 ring-foreground' : ''}`} />
+              <div className={`w-6 h-6 rounded-full bg-pink-500 ${accentColor === 'pink' ? 'ring-2 ring-foreground' : ''}`} />
+            </div>
           </div>
         </CardContent>
         <CardFooter>
