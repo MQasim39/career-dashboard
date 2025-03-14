@@ -216,7 +216,7 @@ const AppSidebar = () => {
           <Switch
             checked={agentEnabled}
             onCheckedChange={setAgentEnabled}
-            size="sm"
+            className="scale-75"
           />
         </div>
 
@@ -243,7 +243,7 @@ const AppSidebar = () => {
           <Switch
             checked={notificationsEnabled}
             onCheckedChange={setNotificationsEnabled}
-            size="sm"
+            className="scale-75"
           />
         </div>
       </div>
