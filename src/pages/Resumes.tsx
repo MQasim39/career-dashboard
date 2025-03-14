@@ -1,9 +1,9 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { 
   Search, 
-  SlidersHorizontal, 
-  Plus 
+  SlidersHorizontal,
+  Loader2
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,17 @@ const Resumes = () => {
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState("dateUploaded");
   const [sortOrder, setSortOrder] = useState("desc");
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Add loading state management
+  useEffect(() => {
+    // Simulate data loading with a short timeout
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, []);
 
   // Filter and sort resumes
   const filteredResumes = resumes.filter(resume => {
@@ -60,6 +71,15 @@ const Resumes = () => {
     return sortOrder === "asc" ? comparison : -comparison;
   });
 
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[50vh]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+        <p className="text-muted-foreground">Loading resumes...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
@@ -86,7 +106,7 @@ const Resumes = () => {
               <SelectValue placeholder="All Types" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Types</SelectItem>
+              <SelectItem value="all">All Types</SelectItem>
               <SelectItem value="general">General</SelectItem>
               <SelectItem value="technical">Technical</SelectItem>
               <SelectItem value="executive">Executive</SelectItem>

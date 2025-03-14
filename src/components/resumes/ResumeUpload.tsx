@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { UploadCloud, X, File, FilePlus, FileText } from "lucide-react";
+import { UploadCloud, X, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { 
   Dialog,
@@ -135,11 +135,16 @@ const ResumeUpload = () => {
     setResumeName("");
   };
 
+  // Direct file input click handler
+  const handleSelectFileClick = () => {
+    document.getElementById("resume-upload")?.click();
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>
-        <Button className="gap-2">
-          <FilePlus className="h-4 w-4" />
+        <Button className="gap-2" onClick={() => setIsOpen(true)}>
+          <UploadCloud className="h-4 w-4" />
           <span>Add Resume</span>
         </Button>
       </DialogTrigger>
@@ -183,9 +188,7 @@ const ResumeUpload = () => {
                   <Button
                     type="button"
                     variant="outline"
-                    onClick={() => {
-                      document.getElementById("resume-upload")?.click();
-                    }}
+                    onClick={handleSelectFileClick}
                   >
                     Select File
                   </Button>
