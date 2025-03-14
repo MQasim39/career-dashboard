@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { 
   Card,
@@ -21,7 +20,6 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/hooks/use-settings";
-import { toast } from "sonner";
 
 const SettingsForm = () => {
   const { toast: showToast } = useToast();
@@ -35,7 +33,6 @@ const SettingsForm = () => {
   const [accentColor, setAccentColor] = useState(settings.accentColor || "purple");
   const [saveDisabled, setSaveDisabled] = useState(true);
 
-  // Check if settings have changed to enable/disable save button
   useEffect(() => {
     const settingsChanged = 
       displayName !== settings.displayName ||
@@ -66,15 +63,9 @@ const SettingsForm = () => {
       accentColor
     });
     
-    // Use showToast from useToast hook for the first toast
     showToast({
       title: "Settings saved",
-      description: "Your preferences have been updated",
-    });
-    
-    // Use toast from sonner for the immediate feedback
-    toast("Settings updated", {
-      description: "Your theme and accent color preferences have been applied",
+      description: "Your preferences have been updated and applied",
     });
   };
 
