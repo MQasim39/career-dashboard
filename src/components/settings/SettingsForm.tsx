@@ -24,7 +24,7 @@ import { useSettings } from "@/hooks/use-settings";
 import { toast } from "sonner";
 
 const SettingsForm = () => {
-  const { toast } = useToast();
+  const { toast: showToast } = useToast();
   const { settings, updateSettings } = useSettings();
   
   const [displayName, setDisplayName] = useState(settings.displayName || "");
@@ -66,12 +66,13 @@ const SettingsForm = () => {
       accentColor
     });
     
-    toast({
+    // Use showToast from useToast hook for the first toast
+    showToast({
       title: "Settings saved",
       description: "Your preferences have been updated",
     });
     
-    // Also show a sonner toast for immediate feedback
+    // Use toast from sonner for the immediate feedback
     toast("Settings updated", {
       description: "Your theme and accent color preferences have been applied",
     });
