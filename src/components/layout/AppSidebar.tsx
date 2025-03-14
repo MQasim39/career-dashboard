@@ -10,7 +10,9 @@ import {
   Settings, 
   User, 
   Bot, 
-  Bell
+  Bell,
+  ChevronRight,
+  ChevronLeft
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -39,7 +41,7 @@ const SidebarLink = ({ to, icon, text, collapsed }: SidebarLinkProps) => {
           collapsed ? "justify-center" : "gap-3",
           isActive
             ? "bg-primary text-primary-foreground"
-            : "hover:bg-secondary"
+            : "hover:bg-muted"
         )
       }
     >
@@ -57,26 +59,27 @@ const AppSidebar = () => {
   return (
     <aside
       className={cn(
-        "h-screen bg-sidebar sticky top-0 left-0 flex flex-col border-r border-sidebar-border transition-all duration-300",
+        "h-screen bg-sidebar sticky top-0 left-0 flex flex-col border-r border-sidebar-border transition-all duration-300 shadow-md",
         collapsed ? "w-16" : "w-64"
       )}
     >
       <div className="flex items-center justify-between p-4 border-b border-sidebar-border">
-        {!collapsed && <h1 className="text-xl font-bold">JobTrackr</h1>}
+        {!collapsed && <h1 className="text-xl font-heading font-bold">JobMatch</h1>}
         <Button
           variant="ghost"
           size="icon"
           onClick={() => setCollapsed(!collapsed)}
           className="ml-auto"
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
-          <Menu className="h-5 w-5" />
+          {collapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
         </Button>
       </div>
 
       {/* User section */}
       <div className="flex items-center p-4 border-b border-sidebar-border">
-        <div className="h-8 w-8 rounded-full bg-primary flex items-center justify-center text-primary-foreground">
-          <User className="h-4 w-4" />
+        <div className="h-9 w-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground">
+          <User className="h-5 w-5" />
         </div>
         {!collapsed && (
           <div className="ml-3 overflow-hidden">
@@ -160,6 +163,31 @@ const AppSidebar = () => {
               to="/resumes"
               icon={<FileText className="h-5 w-5" />}
               text="Resumes"
+              collapsed={collapsed}
+            />
+          )}
+          
+          {collapsed ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>
+                  <SidebarLink
+                    to="/agent"
+                    icon={<Bot className="h-5 w-5" />}
+                    text="Agent"
+                    collapsed={collapsed}
+                  />
+                </div>
+              </TooltipTrigger>
+              <TooltipContent side="right" className="bg-popover">
+                <p>Agent</p>
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <SidebarLink
+              to="/agent"
+              icon={<Bot className="h-5 w-5" />}
+              text="Agent"
               collapsed={collapsed}
             />
           )}
