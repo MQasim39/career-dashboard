@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { 
   BarChart, 
@@ -10,7 +9,8 @@ import {
   Check,
   Clock,
   BarChart3,
-  BarChart4
+  BarChart4,
+  Bot
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -270,8 +270,8 @@ const Dashboard = () => {
                           <div className="text-xs px-2 py-0.5 rounded-full bg-muted">
                             92% Match
                           </div>
-                          <div className="text-xs px-2 py-0.5 rounded-full bg-muted">
-                            Applied
+                          <div className="text-xs px-2 py-0.5 rounded-full bg-primary/20 text-primary">
+                            Interview Scheduled
                           </div>
                         </div>
                       </div>

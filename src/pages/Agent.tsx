@@ -1,6 +1,5 @@
-
 import { useState } from "react";
-import { Bot, Filter, Bell, Mail, Sliders } from "lucide-react";
+import { Bot, Filter, Bell, Mail, Sliders, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
