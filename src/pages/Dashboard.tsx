@@ -1,17 +1,5 @@
 import { useState } from "react";
-import { 
-  BarChart, 
-  ChevronRight, 
-  FileText, 
-  Briefcase, 
-  ArrowUp, 
-  ArrowDown,
-  Check,
-  Clock,
-  BarChart3,
-  BarChart4,
-  Bot
-} from "lucide-react";
+import { BarChart, ChevronRight, FileText, Briefcase, ArrowUp, ArrowDown, Check, Clock, BarChart3, BarChart4, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -20,20 +8,41 @@ import { useResumes } from "@/hooks/use-resumes";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 
 // Mock data for the dashboard charts
-const applicationData = [
-  { name: 'Jan', applications: 5, interviews: 2 },
-  { name: 'Feb', applications: 8, interviews: 3 },
-  { name: 'Mar', applications: 12, interviews: 5 },
-  { name: 'Apr', applications: 10, interviews: 4 },
-  { name: 'May', applications: 15, interviews: 6 },
-  { name: 'Jun', applications: 18, interviews: 8 },
-  { name: 'Jul', applications: 22, interviews: 10 },
-];
-
+const applicationData = [{
+  name: 'Jan',
+  applications: 5,
+  interviews: 2
+}, {
+  name: 'Feb',
+  applications: 8,
+  interviews: 3
+}, {
+  name: 'Mar',
+  applications: 12,
+  interviews: 5
+}, {
+  name: 'Apr',
+  applications: 10,
+  interviews: 4
+}, {
+  name: 'May',
+  applications: 15,
+  interviews: 6
+}, {
+  name: 'Jun',
+  applications: 18,
+  interviews: 8
+}, {
+  name: 'Jul',
+  applications: 22,
+  interviews: 10
+}];
 const Dashboard = () => {
-  const { resumes } = useResumes();
+  const {
+    resumes
+  } = useResumes();
   const [expandedStats, setExpandedStats] = useState(false);
-  
+
   // Mock statistics
   const stats = {
     totalApplications: 42,
@@ -44,14 +53,9 @@ const Dashboard = () => {
     lastWeekApplications: 5,
     prevWeekApplications: 3
   };
-
   const weeklyChange = stats.lastWeekApplications - stats.prevWeekApplications;
-  const weeklyChangePercent = stats.prevWeekApplications !== 0 
-    ? Math.round((weeklyChange / stats.prevWeekApplications) * 100) 
-    : 100;
-
-  return (
-    <div className="space-y-6 animate-fade-in">
+  const weeklyChangePercent = stats.prevWeekApplications !== 0 ? Math.round(weeklyChange / stats.prevWeekApplications * 100) : 100;
+  return <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="text-3xl font-heading font-bold mb-2">Dashboard</h1>
         <p className="text-muted-foreground">
@@ -88,7 +92,7 @@ const Dashboard = () => {
             <div className="flex items-center justify-between">
               <div className="text-2xl font-bold">{stats.perfectMatches}</div>
               <div className="flex items-center gap-1 text-xs text-primary">
-                <span>{Math.round((stats.perfectMatches / stats.totalApplications) * 100)}%</span>
+                <span>{Math.round(stats.perfectMatches / stats.totalApplications * 100)}%</span>
                 <span>match rate</span>
               </div>
             </div>
@@ -105,8 +109,8 @@ const Dashboard = () => {
             <div className="flex items-center justify-between">
               <div className="text-2xl font-bold">{stats.partialMatches}</div>
               <div className="flex items-center gap-1 text-xs text-secondary">
-                <span>{Math.round((stats.partialMatches / stats.totalApplications) * 100)}%</span>
-                <span>of total</span>
+                <span className="text-[#1eea1e]">{Math.round(stats.partialMatches / stats.totalApplications * 100)}%</span>
+                <span className="text-[#24e824]">of total</span>
               </div>
             </div>
           </CardContent>
@@ -139,12 +143,7 @@ const Dashboard = () => {
               Detailed breakdown of your job applications
             </CardDescription>
           </div>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => setExpandedStats(!expandedStats)}
-            className="h-8 w-8 p-0 rounded-full"
-          >
+          <Button variant="ghost" size="sm" onClick={() => setExpandedStats(!expandedStats)} className="h-8 w-8 p-0 rounded-full">
             <ChevronRight className={`h-4 w-4 transition-transform ${expandedStats ? 'rotate-90' : ''}`} />
           </Button>
         </CardHeader>
@@ -158,25 +157,25 @@ const Dashboard = () => {
                   <div className="space-y-2">
                     <div className="flex justify-between text-xs">
                       <span className="text-muted-foreground">Perfect Match</span>
-                      <span>{Math.round((stats.perfectMatches / stats.totalApplications) * 100)}%</span>
+                      <span>{Math.round(stats.perfectMatches / stats.totalApplications * 100)}%</span>
                     </div>
-                    <Progress value={Math.round((stats.perfectMatches / stats.totalApplications) * 100)} className="h-2" />
+                    <Progress value={Math.round(stats.perfectMatches / stats.totalApplications * 100)} className="h-2" />
                   </div>
                   
                   <div className="space-y-2">
                     <div className="flex justify-between text-xs">
                       <span className="text-muted-foreground">Partial Match</span>
-                      <span>{Math.round((stats.partialMatches / stats.totalApplications) * 100)}%</span>
+                      <span>{Math.round(stats.partialMatches / stats.totalApplications * 100)}%</span>
                     </div>
-                    <Progress value={Math.round((stats.partialMatches / stats.totalApplications) * 100)} className="h-2" />
+                    <Progress value={Math.round(stats.partialMatches / stats.totalApplications * 100)} className="h-2" />
                   </div>
                   
                   <div className="space-y-2">
                     <div className="flex justify-between text-xs">
                       <span className="text-muted-foreground">No Response</span>
-                      <span>{Math.round((stats.noResponses / stats.totalApplications) * 100)}%</span>
+                      <span>{Math.round(stats.noResponses / stats.totalApplications * 100)}%</span>
                     </div>
-                    <Progress value={Math.round((stats.noResponses / stats.totalApplications) * 100)} className="h-2" />
+                    <Progress value={Math.round(stats.noResponses / stats.totalApplications * 100)} className="h-2" />
                   </div>
                 </div>
               </div>
@@ -196,26 +195,19 @@ const Dashboard = () => {
                 </div>
                 <div className="h-40">
                   <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart
-                      data={applicationData}
-                      margin={{
-                        top: 5,
-                        right: 20,
-                        left: 0,
-                        bottom: 5,
-                      }}
-                    >
+                    <AreaChart data={applicationData} margin={{
+                    top: 5,
+                    right: 20,
+                    left: 0,
+                    bottom: 5
+                  }}>
                       <CartesianGrid strokeDasharray="3 3" opacity={0.2} />
-                      <XAxis 
-                        dataKey="name" 
-                        tick={{ fontSize: 12 }} 
-                        tickLine={false}
-                      />
-                      <YAxis 
-                        tick={{ fontSize: 12 }} 
-                        tickLine={false}
-                        axisLine={false}
-                      />
+                      <XAxis dataKey="name" tick={{
+                      fontSize: 12
+                    }} tickLine={false} />
+                      <YAxis tick={{
+                      fontSize: 12
+                    }} tickLine={false} axisLine={false} />
                       <Tooltip />
                       <Area type="monotone" dataKey="applications" stroke="#4361EE" fill="#4361EE" fillOpacity={0.2} />
                       <Area type="monotone" dataKey="interviews" stroke="#F72585" fill="#F72585" fillOpacity={0.2} />
@@ -227,13 +219,11 @@ const Dashboard = () => {
           </div>
         </CardContent>
         <CardFooter className={expandedStats ? "border-t" : ""}>
-          {expandedStats && (
-            <div className="w-full flex justify-end">
+          {expandedStats && <div className="w-full flex justify-end">
               <Button variant="outline" size="sm" onClick={() => setExpandedStats(false)}>
                 Collapse
               </Button>
-            </div>
-          )}
+            </div>}
         </CardFooter>
       </Card>
       
@@ -480,16 +470,12 @@ const Dashboard = () => {
             <CardHeader>
               <CardTitle className="text-xl font-heading">Resume Overview</CardTitle>
               <CardDescription>
-                {resumes.length > 0
-                  ? `You have ${resumes.length} resume${resumes.length > 1 ? 's' : ''}`
-                  : "No resumes uploaded yet"}
+                {resumes.length > 0 ? `You have ${resumes.length} resume${resumes.length > 1 ? 's' : ''}` : "No resumes uploaded yet"}
               </CardDescription>
             </CardHeader>
             <CardContent>
-              {resumes.length > 0 ? (
-                <div className="space-y-2">
-                  {resumes.slice(0, 3).map((resume) => (
-                    <div key={resume.id} className="flex items-center p-2 rounded-md hover:bg-muted">
+              {resumes.length > 0 ? <div className="space-y-2">
+                  {resumes.slice(0, 3).map(resume => <div key={resume.id} className="flex items-center p-2 rounded-md hover:bg-muted">
                       <div className="bg-secondary p-1.5 rounded-md mr-3">
                         <FileText className="h-4 w-4 text-white" />
                       </div>
@@ -497,31 +483,23 @@ const Dashboard = () => {
                         <p className="text-sm font-medium truncate">{resume.name}</p>
                         <p className="text-xs text-muted-foreground">{resume.type}</p>
                       </div>
-                    </div>
-                  ))}
+                    </div>)}
                   
-                  {resumes.length > 3 && (
-                    <p className="text-xs text-center text-muted-foreground pt-2">
+                  {resumes.length > 3 && <p className="text-xs text-center text-muted-foreground pt-2">
                       +{resumes.length - 3} more resumes
-                    </p>
-                  )}
-                </div>
-              ) : (
-                <div className="py-8 text-center">
+                    </p>}
+                </div> : <div className="py-8 text-center">
                   <p className="text-sm text-muted-foreground mb-2">
                     Upload a resume to get started
                   </p>
                   <Button size="sm" asChild>
                     <a href="/resumes">Upload Now</a>
                   </Button>
-                </div>
-              )}
+                </div>}
             </CardContent>
           </Card>
         </div>
       </div>
-    </div>
-  );
+    </div>;
 };
-
 export default Dashboard;
