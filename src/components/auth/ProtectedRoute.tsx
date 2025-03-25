@@ -13,8 +13,14 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   const location = useLocation();
 
   useEffect(() => {
-    // Debug log to help troubleshoot auth issues
-    console.log("ProtectedRoute: Auth state", { user, loading, path: location.pathname });
+    // Enhanced debug log to help troubleshoot auth issues
+    console.log("ProtectedRoute: Auth state", { 
+      user, 
+      loading, 
+      path: location.pathname,
+      hasUser: !!user,
+      metadata: user?.user_metadata
+    });
   }, [user, loading, location]);
 
   // Show loading indicator while auth state is being determined

@@ -29,6 +29,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Set up auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log("Auth state changed:", event, session?.user?.email);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -43,6 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Then check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log("Initial session check:", session?.user?.email);
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
@@ -116,16 +118,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       setLoading(true);
       await supabase.auth.signOut();
+      
+      // Clear any stored data if needed
+      localStorage.removeItem("supabase.auth.token");
+      
       toast({
         title: "Signed out",
         description: "You've been successfully signed out.",
       });
+      
+      // Navigate to login page
+      navigate("/auth/login");
     } catch (error: any) {
       toast({
         title: "Sign out failed",
         description: error.message || "An error occurred while signing out.",
         variant: "destructive",
       });
+      throw error;
     } finally {
       setLoading(false);
     }

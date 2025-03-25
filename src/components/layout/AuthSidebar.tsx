@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { NavLink } from "react-router-dom";
 import { 
@@ -23,6 +24,7 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
+import { useToast } from "@/hooks/use-toast";
 
 interface SidebarLinkProps {
   to: string;
@@ -56,13 +58,27 @@ const AuthSidebar = () => {
   const [agentEnabled, setAgentEnabled] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const { user, signOut } = useAuth();
+  const { toast } = useToast();
 
   // Extract user's name or email for display
   const displayName = user?.user_metadata?.full_name || user?.email || "User";
   const userEmail = user?.email || "";
 
   const handleLogout = async () => {
-    await signOut();
+    try {
+      await signOut();
+      toast({
+        title: "Logged out successfully",
+        description: "You have been logged out of your account",
+      });
+    } catch (error) {
+      console.error("Logout error:", error);
+      toast({
+        title: "Logout failed",
+        description: "There was a problem logging you out. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (

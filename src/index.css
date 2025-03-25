@@ -93,12 +93,28 @@
     --ring: 257 86% 55%;
   }
 
+  .dark .accent-purple {
+    --accent: 257 86% 70%; /* Brighter purple for dark mode */
+    --accent-foreground: 0 0% 98%;
+    --primary: 257 86% 70%; /* Brighter purple for dark mode */
+    --primary-foreground: 0 0% 98%;
+    --ring: 257 86% 70%;
+  }
+
   .accent-blue {
     --accent: 221 83% 53%;
     --accent-foreground: 0 0% 98%;
     --primary: 221 83% 53%;
     --primary-foreground: 0 0% 98%;
     --ring: 221 83% 53%;
+  }
+
+  .dark .accent-blue {
+    --accent: 221 83% 68%; /* Brighter blue for dark mode */
+    --accent-foreground: 0 0% 98%;
+    --primary: 221 83% 68%; /* Brighter blue for dark mode */
+    --primary-foreground: 0 0% 98%;
+    --ring: 221 83% 68%;
   }
 
   .accent-green {
@@ -109,6 +125,14 @@
     --ring: 142 76% 36%;
   }
 
+  .dark .accent-green {
+    --accent: 142 76% 45%; /* Brighter green for dark mode */
+    --accent-foreground: 0 0% 98%;
+    --primary: 142 76% 45%; /* Brighter green for dark mode */
+    --primary-foreground: 0 0% 98%;
+    --ring: 142 76% 45%;
+  }
+
   .accent-orange {
     --accent: 24 94% 50%;
     --accent-foreground: 0 0% 98%;
@@ -117,12 +141,28 @@
     --ring: 24 94% 50%;
   }
 
+  .dark .accent-orange {
+    --accent: 24 94% 65%; /* Brighter orange for dark mode */
+    --accent-foreground: 0 0% 98%;
+    --primary: 24 94% 65%; /* Brighter orange for dark mode */
+    --primary-foreground: 0 0% 98%;
+    --ring: 24 94% 65%;
+  }
+
   .accent-pink {
     --accent: 334 94% 55%;
     --accent-foreground: 0 0% 98%;
     --primary: 334 94% 55%;
     --primary-foreground: 0 0% 98%;
     --ring: 334 94% 55%;
+  }
+
+  .dark .accent-pink {
+    --accent: 334 94% 70%; /* Brighter pink for dark mode */
+    --accent-foreground: 0 0% 98%;
+    --primary: 334 94% 70%; /* Brighter pink for dark mode */
+    --primary-foreground: 0 0% 98%;
+    --ring: 334 94% 70%;
   }
 }
 

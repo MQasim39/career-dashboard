@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/hooks/use-auth";
 
 interface SidebarLinkProps {
   to: string;
@@ -55,6 +56,15 @@ const AppSidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
   const [agentEnabled, setAgentEnabled] = useState(false);
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const { user, signOut } = useAuth();
+
+  // Extract user's name or email for display
+  const displayName = user?.user_metadata?.full_name || user?.email || "User";
+  const userEmail = user?.email || "";
+
+  const handleLogout = async () => {
+    await signOut();
+  };
 
   return (
     <aside
@@ -83,8 +93,8 @@ const AppSidebar = () => {
         </div>
         {!collapsed && (
           <div className="ml-3 overflow-hidden">
-            <p className="font-medium truncate">John Doe</p>
-            <p className="text-xs text-muted-foreground truncate">john@example.com</p>
+            <p className="font-medium truncate">{displayName}</p>
+            <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
           </div>
         )}
       </div>
@@ -278,10 +288,14 @@ const AppSidebar = () => {
 
       {/* Logout */}
       <div className="p-2 border-t border-sidebar-border">
-        <Button variant="ghost" className={cn(
-          "w-full",
-          collapsed ? "justify-center p-2" : "justify-start"
-        )}>
+        <Button 
+          variant="ghost" 
+          className={cn(
+            "w-full",
+            collapsed ? "justify-center p-2" : "justify-start"
+          )}
+          onClick={handleLogout}
+        >
           <LogOut className="h-5 w-5" />
           {!collapsed && <span className="ml-2">Logout</span>}
         </Button>
