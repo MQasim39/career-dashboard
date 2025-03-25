@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Search, Filter, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -20,14 +20,30 @@ import {
 } from "@/components/ui/dropdown-menu";
 import JobCard from "./JobCard";
 import { useJobs } from "@/hooks/use-jobs";
+import { useToast } from "@/hooks/use-toast";
 
 const JobTracking = () => {
+  const { toast } = useToast();
   const { jobs, updateJobStatus, toggleFavorite } = useJobs();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState("dateApplied");
   const [sortOrder, setSortOrder] = useState("desc");
   const [showFavorites, setShowFavorites] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Simulate loading state for demonstration
+  useEffect(() => {
+    console.log("JobTracking mounted, jobs:", jobs);
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+      if (jobs.length === 0) {
+        console.log("No jobs found in the jobs state");
+      }
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [jobs]);
 
   // Filter and sort jobs
   const filteredJobs = jobs.filter(job => {
@@ -65,11 +81,39 @@ const JobTracking = () => {
 
   const handleStatusChange = (id: string, status: string) => {
     updateJobStatus(id, status);
+    toast({
+      title: "Job status updated",
+      description: `Job status has been changed to ${status}`,
+    });
   };
 
   const handleToggleFavorite = (id: string) => {
     toggleFavorite(id);
   };
+
+  if (isLoading) {
+    return (
+      <div className="flex justify-center items-center h-64">
+        <div className="animate-pulse space-y-4 w-full">
+          <div className="h-12 bg-muted rounded-md w-full"></div>
+          <div className="h-32 bg-muted rounded-md w-full"></div>
+          <div className="h-32 bg-muted rounded-md w-full"></div>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center py-12 border border-dashed rounded-lg">
+        <p className="text-destructive">Error loading jobs</p>
+        <p className="text-sm text-muted-foreground mt-1">{error}</p>
+        <Button className="mt-4" onClick={() => window.location.reload()}>
+          Try Again
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

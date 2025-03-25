@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { 
   Card,
@@ -18,12 +19,35 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { 
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { Trash2, User } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useSettings } from "@/hooks/use-settings";
+import { useAuth } from "@/hooks/use-auth";
 
 const SettingsForm = () => {
   const { toast: showToast } = useToast();
   const { settings, updateSettings } = useSettings();
+  const { user, signOut, updateUserProfile } = useAuth();
   
   const [displayName, setDisplayName] = useState(settings.displayName || "");
   const [emailNotifications, setEmailNotifications] = useState(settings.emailNotifications || false);
@@ -31,7 +55,17 @@ const SettingsForm = () => {
   const [interviewReminders, setInterviewReminders] = useState(settings.interviewReminders || false);
   const [colorTheme, setColorTheme] = useState(settings.colorTheme || "dark");
   const [accentColor, setAccentColor] = useState(settings.accentColor || "purple");
+  const [deleteConfirmPassword, setDeleteConfirmPassword] = useState("");
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [saveDisabled, setSaveDisabled] = useState(true);
+  const [profileName, setProfileName] = useState("");
+
+  // Get user profile data
+  useEffect(() => {
+    if (user) {
+      setProfileName(user.user_metadata?.full_name || "");
+    }
+  }, [user]);
 
   useEffect(() => {
     const settingsChanged = 
@@ -69,6 +103,43 @@ const SettingsForm = () => {
     });
   };
 
+  const handleProfileSave = async () => {
+    try {
+      await updateUserProfile({ full_name: profileName });
+      showToast({
+        title: "Profile updated",
+        description: "Your profile information has been saved",
+      });
+    } catch (error: any) {
+      showToast({
+        title: "Update failed",
+        description: error.message || "An error occurred while updating your profile",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    try {
+      // Here you would implement the actual account deletion logic
+      // For now, we'll just sign out the user
+      await signOut();
+      showToast({
+        title: "Account deleted",
+        description: "Your account has been successfully deleted",
+      });
+    } catch (error: any) {
+      showToast({
+        title: "Deletion failed",
+        description: error.message || "An error occurred while deleting your account",
+        variant: "destructive",
+      });
+    } finally {
+      setDeleteConfirmPassword("");
+      setIsDeleteDialogOpen(false);
+    }
+  };
+
   const handleThemeChange = (value: string) => {
     setColorTheme(value);
   };
@@ -88,10 +159,57 @@ const SettingsForm = () => {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
+            <div className="flex items-center justify-center mb-6">
+              <div className="w-24 h-24 bg-muted rounded-full flex items-center justify-center">
+                <User className="h-12 w-12 text-muted-foreground" />
+              </div>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="profileName">Your Name</Label>
+              <Input
+                id="profileName"
+                placeholder="Your Name"
+                value={profileName}
+                onChange={(e) => setProfileName(e.target.value)}
+              />
+            </div>
+            
+            <div className="space-y-2 mt-4">
+              <Label htmlFor="profileEmail">Email Address</Label>
+              <Input
+                id="profileEmail"
+                value={user?.email || ""}
+                readOnly
+                disabled
+                className="bg-muted"
+              />
+              <p className="text-xs text-muted-foreground mt-1">
+                Your email cannot be changed as it's used for authentication
+              </p>
+            </div>
+          </div>
+        </CardContent>
+        <CardFooter>
+          <Button onClick={handleProfileSave}>
+            Save Profile
+          </Button>
+        </CardFooter>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Display Preferences</CardTitle>
+          <CardDescription>
+            Customize how you'd like your dashboard to appear.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
             <Label htmlFor="displayName">Display Name</Label>
             <Input
               id="displayName"
-              placeholder="Your Name"
+              placeholder="Your Display Name"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
             />
@@ -201,6 +319,55 @@ const SettingsForm = () => {
             Save Changes
           </Button>
         </CardFooter>
+      </Card>
+
+      <Card className="border-destructive/20">
+        <CardHeader>
+          <CardTitle className="text-destructive">Account Management</CardTitle>
+          <CardDescription>
+            Danger zone: Irreversible account actions.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" className="gap-2">
+                <Trash2 className="h-4 w-4" />
+                Delete Account
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. This will permanently delete your account and remove all your data from our servers.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <div className="space-y-2 py-2">
+                <Label htmlFor="confirmPassword">
+                  Enter your password to confirm:
+                </Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  placeholder="Your password"
+                  value={deleteConfirmPassword}
+                  onChange={(e) => setDeleteConfirmPassword(e.target.value)}
+                />
+              </div>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction 
+                  onClick={handleDeleteAccount}
+                  disabled={!deleteConfirmPassword}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Delete Account
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </CardContent>
       </Card>
     </div>
   );

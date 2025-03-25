@@ -13,6 +13,7 @@ interface AuthContextType {
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
+  updateUserProfile: (metadata: { [key: string]: any }) => Promise<void>;
   loading: boolean;
 }
 
@@ -199,6 +200,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const updateUserProfile = async (metadata: { [key: string]: any }) => {
+    try {
+      setLoading(true);
+      const { error } = await supabase.auth.updateUser({
+        data: metadata
+      });
+      
+      if (error) {
+        throw error;
+      }
+      
+      // Update the local user state with the new metadata
+      if (user) {
+        setUser({
+          ...user,
+          user_metadata: {
+            ...user.user_metadata,
+            ...metadata
+          }
+        });
+      }
+      
+      return;
+    } catch (error: any) {
+      toast({
+        title: "Profile update failed",
+        description: error.message || "An error occurred while updating your profile.",
+        variant: "destructive",
+      });
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -209,6 +245,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         signOut,
         resetPassword,
         updatePassword,
+        updateUserProfile,
         loading,
       }}
     >
