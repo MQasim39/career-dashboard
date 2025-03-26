@@ -45,7 +45,7 @@ const App = () => (
                   <Toaster />
                   <Routes>
                     {/* Landing page route */}
-                    <Route path="/landing" element={<Index />} />
+                    <Route path="/" element={<Index />} />
                     
                     {/* Auth routes */}
                     <Route path="/auth" element={<AuthLayout />}>
@@ -56,7 +56,7 @@ const App = () => (
                     </Route>
                     
                     {/* Protected routes */}
-                    <Route path="/" element={
+                    <Route path="/dashboard" element={
                       <ProtectedRoute>
                         <MainLayout />
                       </ProtectedRoute>
@@ -69,8 +69,8 @@ const App = () => (
                       <Route path="settings" element={<Settings />} />
                     </Route>
                     
-                    {/* Redirect to landing page for new users */}
-                    <Route path="*" element={<Navigate to="/landing" replace />} />
+                    {/* Catch-all route */}
+                    <Route path="*" element={<NotFound />} />
                   </Routes>
                 </TooltipProvider>
               </ResumesProvider>

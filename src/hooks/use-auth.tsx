@@ -36,9 +36,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
         
         if (event === "SIGNED_IN") {
-          navigate("/");
+          navigate("/dashboard");
         } else if (event === "SIGNED_OUT") {
-          navigate("/auth/login");
+          navigate("/");
         }
       }
     );
