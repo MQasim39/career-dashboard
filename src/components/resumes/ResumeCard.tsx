@@ -25,6 +25,7 @@ import { formatDistanceToNow } from "date-fns";
 import { Resume } from "@/types/resume";
 import { useResumes } from "@/hooks/use-resumes";
 import { Dialog, DialogContent, DialogTitle, DialogHeader, DialogTrigger } from "@/components/ui/dialog";
+import { useState } from "react";
 
 interface ResumeCardProps {
   resume: Resume;
@@ -32,6 +33,7 @@ interface ResumeCardProps {
 
 const ResumeCard = ({ resume }: ResumeCardProps) => {
   const { removeResume, setDefaultResume, defaultResumeId } = useResumes();
+  const [dialogOpen, setDialogOpen] = useState(false);
 
   const isDefault = defaultResumeId === resume.id;
 
@@ -88,9 +90,12 @@ const ResumeCard = ({ resume }: ResumeCardProps) => {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
-                <Dialog>
+                <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                   <DialogTrigger asChild>
-                    <DropdownMenuItem>
+                    <DropdownMenuItem onSelect={(e) => {
+                      e.preventDefault(); // Prevent menu from closing
+                      setDialogOpen(true);
+                    }}>
                       <Eye className="h-4 w-4 mr-2" />
                       Preview
                     </DropdownMenuItem>
@@ -100,11 +105,18 @@ const ResumeCard = ({ resume }: ResumeCardProps) => {
                       <DialogTitle>{resume.name}</DialogTitle>
                     </DialogHeader>
                     <div className="flex-1 overflow-auto">
-                      <iframe 
-                        src={resume.file} 
-                        className="w-full h-full min-h-[60vh] border rounded-md"
-                        title={resume.name}
-                      />
+                      {resume.file && (
+                        <object 
+                          data={resume.file} 
+                          type={resume.fileType || "application/pdf"}
+                          className="w-full h-full min-h-[60vh] border rounded-md"
+                          aria-label={`Preview of ${resume.name}`}
+                        >
+                          <div className="p-4 text-center">
+                            <p>Unable to display preview. <a href={resume.file} target="_blank" rel="noopener noreferrer" className="text-primary">Download the file</a> to view it.</p>
+                          </div>
+                        </object>
+                      )}
                     </div>
                   </DialogContent>
                 </Dialog>
@@ -123,7 +135,7 @@ const ResumeCard = ({ resume }: ResumeCardProps) => {
                 
                 <AlertDialog>
                   <AlertDialogTrigger asChild>
-                    <DropdownMenuItem className="text-destructive focus:text-destructive">
+                    <DropdownMenuItem className="text-destructive focus:text-destructive" onSelect={(e) => e.preventDefault()}>
                       <Trash2 className="h-4 w-4 mr-2" />
                       Delete
                     </DropdownMenuItem>
