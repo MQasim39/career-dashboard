@@ -7,6 +7,7 @@ import { ResumesProvider } from "@/hooks/use-resumes";
 import { SettingsProvider } from "@/hooks/use-settings";
 import { ThemeProvider } from "@/hooks/use-theme";
 import { AuthProvider } from "@/hooks/use-auth";
+import { JobsProvider } from "@/hooks/use-jobs";
 import MainLayout from "@/components/layout/MainLayout";
 import AuthLayout from "@/components/auth/AuthLayout";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
@@ -15,6 +16,7 @@ import Jobs from "@/pages/Jobs";
 import Resumes from "@/pages/Resumes";
 import Settings from "@/pages/Settings";
 import Agent from "@/pages/Agent";
+import Reports from "@/pages/Reports";
 import NotFound from "@/pages/NotFound";
 import Login from "@/pages/auth/Login";
 import SignUp from "@/pages/auth/SignUp";
@@ -36,36 +38,39 @@ const App = () => (
       <ThemeProvider>
         <BrowserRouter>
           <AuthProvider>
-            <ResumesProvider>
-              <TooltipProvider>
-                <Toaster />
-                <Routes>
-                  {/* Auth routes */}
-                  <Route path="/auth" element={<AuthLayout />}>
-                    <Route path="login" element={<Login />} />
-                    <Route path="signup" element={<SignUp />} />
-                    <Route path="forgot-password" element={<ForgotPassword />} />
-                    <Route path="update-password" element={<UpdatePassword />} />
-                  </Route>
-                  
-                  {/* Protected routes */}
-                  <Route path="/" element={
-                    <ProtectedRoute>
-                      <MainLayout />
-                    </ProtectedRoute>
-                  }>
-                    <Route index element={<Dashboard />} />
-                    <Route path="jobs" element={<Jobs />} />
-                    <Route path="resumes" element={<Resumes />} />
-                    <Route path="agent" element={<Agent />} />
-                    <Route path="settings" element={<Settings />} />
-                  </Route>
-                  
-                  {/* Redirect / to /auth/login when no path is specified */}
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </TooltipProvider>
-            </ResumesProvider>
+            <JobsProvider>
+              <ResumesProvider>
+                <TooltipProvider>
+                  <Toaster />
+                  <Routes>
+                    {/* Auth routes */}
+                    <Route path="/auth" element={<AuthLayout />}>
+                      <Route path="login" element={<Login />} />
+                      <Route path="signup" element={<SignUp />} />
+                      <Route path="forgot-password" element={<ForgotPassword />} />
+                      <Route path="update-password" element={<UpdatePassword />} />
+                    </Route>
+                    
+                    {/* Protected routes */}
+                    <Route path="/" element={
+                      <ProtectedRoute>
+                        <MainLayout />
+                      </ProtectedRoute>
+                    }>
+                      <Route index element={<Dashboard />} />
+                      <Route path="jobs" element={<Jobs />} />
+                      <Route path="resumes" element={<Resumes />} />
+                      <Route path="agent" element={<Agent />} />
+                      <Route path="reports" element={<Reports />} />
+                      <Route path="settings" element={<Settings />} />
+                    </Route>
+                    
+                    {/* Redirect / to /auth/login when no path is specified */}
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </TooltipProvider>
+              </ResumesProvider>
+            </JobsProvider>
           </AuthProvider>
         </BrowserRouter>
       </ThemeProvider>

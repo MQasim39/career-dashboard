@@ -1,4 +1,5 @@
-import { useState } from "react";
+
+import { useState, useRef } from "react";
 import { BarChart, ChevronRight, FileText, Briefcase, ArrowUp, ArrowDown, Check, Clock, BarChart3, BarChart4, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -6,6 +7,8 @@ import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useResumes } from "@/hooks/use-resumes";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
 // Mock data for the dashboard charts
 const applicationData = [{
@@ -37,11 +40,14 @@ const applicationData = [{
   applications: 22,
   interviews: 10
 }];
+
 const Dashboard = () => {
-  const {
-    resumes
-  } = useResumes();
+  const { resumes, addResume } = useResumes();
   const [expandedStats, setExpandedStats] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   // Mock statistics
   const stats = {
@@ -55,6 +61,87 @@ const Dashboard = () => {
   };
   const weeklyChange = stats.lastWeekApplications - stats.prevWeekApplications;
   const weeklyChangePercent = stats.prevWeekApplications !== 0 ? Math.round(weeklyChange / stats.prevWeekApplications * 100) : 100;
+
+  // Handle resume upload
+  const handleUploadResume = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    // Validate file type
+    const allowedTypes = ['application/pdf', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'];
+    if (!allowedTypes.includes(file.type)) {
+      toast({
+        title: "Invalid file type",
+        description: "Please upload a PDF or DOCX file",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Validate file size (5MB max)
+    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+    if (file.size > maxSize) {
+      toast({
+        title: "File too large",
+        description: "Please upload a file smaller than 5MB",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setIsUploading(true);
+
+    // Simulate upload process
+    setTimeout(() => {
+      // Create a new resume object
+      const newResume = {
+        id: crypto.randomUUID(),
+        name: file.name,
+        type: file.type === 'application/pdf' ? 'PDF' : 'DOCX',
+        size: file.size,
+        dateUploaded: new Date().toISOString(),
+        data: URL.createObjectURL(file),
+        status: 'active',
+        favorite: false
+      };
+
+      // Add the resume to the context
+      addResume(newResume);
+
+      // Show success message
+      toast({
+        title: "Resume uploaded",
+        description: "Your resume has been successfully uploaded",
+      });
+
+      setIsUploading(false);
+      
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }, 1500);
+  };
+
+  // Navigation handlers
+  const handleConfigureAgent = () => {
+    navigate('/agent');
+  };
+
+  const handleBrowseJobs = () => {
+    navigate('/jobs');
+  };
+
+  const handleViewReports = () => {
+    navigate('/reports');
+  };
+
   return <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="text-3xl font-heading font-bold mb-2">Dashboard</h1>
@@ -108,9 +195,9 @@ const Dashboard = () => {
           <CardContent>
             <div className="flex items-center justify-between">
               <div className="text-2xl font-bold">{stats.partialMatches}</div>
-              <div className="flex items-center gap-1 text-xs text-secondary">
-                <span className="text-[#1eea1e]">{Math.round(stats.partialMatches / stats.totalApplications * 100)}%</span>
-                <span className="text-[#24e824]">of total</span>
+              <div className="flex items-center gap-1 text-xs">
+                <span className="text-accent-foreground dark:text-accent-foreground">{Math.round(stats.partialMatches / stats.totalApplications * 100)}%</span>
+                <span className="text-accent-foreground dark:text-accent-foreground">of total</span>
               </div>
             </div>
           </CardContent>
@@ -125,7 +212,7 @@ const Dashboard = () => {
           <CardContent>
             <div className="flex items-center justify-between">
               <div className="text-2xl font-bold">{stats.interviewRate}%</div>
-              <div className="flex items-center gap-1 text-xs text-accent">
+              <div className="flex items-center gap-1 text-xs text-accent-foreground">
                 <span>{Math.round(stats.interviewRate / 10)}/10</span>
                 <span>score</span>
               </div>
@@ -311,8 +398,8 @@ const Dashboard = () => {
                   </div>
                 </CardContent>
                 <CardFooter className="border-t pt-4">
-                  <Button variant="outline" className="w-full" asChild>
-                    <a href="/jobs">View All Applications</a>
+                  <Button variant="outline" className="w-full" onClick={() => navigate('/jobs')}>
+                    View All Applications
                   </Button>
                 </CardFooter>
               </Card>
@@ -371,8 +458,8 @@ const Dashboard = () => {
                   </div>
                 </CardContent>
                 <CardFooter className="border-t pt-4">
-                  <Button variant="outline" className="w-full" asChild>
-                    <a href="/jobs">View All Matches</a>
+                  <Button variant="outline" className="w-full" onClick={() => navigate('/jobs')}>
+                    View All Matches
                   </Button>
                 </CardFooter>
               </Card>
@@ -423,8 +510,8 @@ const Dashboard = () => {
                   </div>
                 </CardContent>
                 <CardFooter className="border-t pt-4">
-                  <Button variant="outline" className="w-full" asChild>
-                    <a href="/jobs">View Calendar</a>
+                  <Button variant="outline" className="w-full" onClick={() => navigate('/jobs')}>
+                    View Calendar
                   </Button>
                 </CardFooter>
               </Card>
@@ -439,29 +526,58 @@ const Dashboard = () => {
               <CardTitle className="text-xl font-heading">Quick Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-2">
-              <Button className="w-full justify-start" asChild>
-                <a href="/resumes">
-                  <FileText className="mr-2 h-4 w-4" />
-                  Upload Resume
-                </a>
+              {/* Hidden file input for resume upload */}
+              <input 
+                type="file" 
+                ref={fileInputRef} 
+                onChange={handleFileChange} 
+                accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" 
+                className="hidden" 
+              />
+              
+              <Button 
+                className="w-full justify-start" 
+                onClick={handleUploadResume}
+                disabled={isUploading}
+              >
+                {isUploading ? (
+                  <>
+                    <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+                    Uploading...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="mr-2 h-4 w-4" />
+                    Upload Resume
+                  </>
+                )}
               </Button>
-              <Button className="w-full justify-start" variant="outline" asChild>
-                <a href="/agent">
-                  <Bot className="mr-2 h-4 w-4" />
-                  Configure Agent
-                </a>
+              
+              <Button 
+                className="w-full justify-start" 
+                variant="outline" 
+                onClick={handleConfigureAgent}
+              >
+                <Bot className="mr-2 h-4 w-4" />
+                Configure Agent
               </Button>
-              <Button className="w-full justify-start" variant="outline" asChild>
-                <a href="/jobs">
-                  <Briefcase className="mr-2 h-4 w-4" />
-                  Browse Jobs
-                </a>
+              
+              <Button 
+                className="w-full justify-start" 
+                variant="outline" 
+                onClick={handleBrowseJobs}
+              >
+                <Briefcase className="mr-2 h-4 w-4" />
+                Browse Jobs
               </Button>
-              <Button className="w-full justify-start" variant="outline" asChild>
-                <a href="/settings">
-                  <BarChart className="mr-2 h-4 w-4" />
-                  View Reports
-                </a>
+              
+              <Button 
+                className="w-full justify-start" 
+                variant="outline" 
+                onClick={handleViewReports}
+              >
+                <BarChart className="mr-2 h-4 w-4" />
+                View Reports
               </Button>
             </CardContent>
           </Card>
@@ -492,8 +608,8 @@ const Dashboard = () => {
                   <p className="text-sm text-muted-foreground mb-2">
                     Upload a resume to get started
                   </p>
-                  <Button size="sm" asChild>
-                    <a href="/resumes">Upload Now</a>
+                  <Button size="sm" onClick={handleUploadResume}>
+                    Upload Now
                   </Button>
                 </div>}
             </CardContent>

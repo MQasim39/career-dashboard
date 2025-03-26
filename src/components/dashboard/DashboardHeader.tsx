@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useJobs } from "@/hooks/use-jobs";
 import { useResumes } from "@/hooks/use-resumes";
+import { useNavigate } from "react-router-dom";
 
 const StatCard = ({ icon, title, value, change, changeType, className }: { 
   icon: React.ReactNode;
@@ -49,6 +50,7 @@ const StatCard = ({ icon, title, value, change, changeType, className }: {
 const DashboardHeader = () => {
   const { jobs } = useJobs();
   const { resumes } = useResumes();
+  const navigate = useNavigate();
   
   // Calculate stats
   const totalApplications = jobs.length;
@@ -149,12 +151,19 @@ const DashboardHeader = () => {
             <h3 className="font-medium">Quick Actions</h3>
             
             <div className="space-y-2">
-              <Button className="w-full justify-start gap-2">
+              <Button 
+                className="w-full justify-start gap-2"
+                onClick={() => navigate('/jobs')}
+              >
                 <Briefcase className="h-4 w-4" />
                 <span>Add New Job Application</span>
               </Button>
               
-              <Button variant="outline" className="w-full justify-start gap-2">
+              <Button 
+                variant="outline" 
+                className="w-full justify-start gap-2"
+                onClick={() => navigate('/resumes')}
+              >
                 <FileText className="h-4 w-4" />
                 <span>Upload New Resume</span>
               </Button>
