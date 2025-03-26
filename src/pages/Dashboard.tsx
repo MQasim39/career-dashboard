@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { BarChart, ChevronRight, FileText, Briefcase, ArrowUp, ArrowDown, Check, Clock, BarChart3, BarChart4, Bot } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -9,6 +8,7 @@ import { useResumes } from "@/hooks/use-resumes";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { Resume } from "@/types/resume";
 
 // Mock data for the dashboard charts
 const applicationData = [{
@@ -99,16 +99,19 @@ const Dashboard = () => {
 
     // Simulate upload process
     setTimeout(() => {
-      // Create a new resume object
-      const newResume = {
+      // Create a new resume object that matches the Resume type
+      const newResume: Resume = {
         id: crypto.randomUUID(),
         name: file.name,
         type: file.type === 'application/pdf' ? 'PDF' : 'DOCX',
-        size: file.size,
+        fileName: file.name,  // Add this to match the Resume type
+        fileSize: file.size,  // Renamed from size to fileSize
+        fileType: file.type,  // Add this to match the Resume type
         dateUploaded: new Date().toISOString(),
-        data: URL.createObjectURL(file),
-        status: 'active',
-        favorite: false
+        file: URL.createObjectURL(file),  // Renamed from data to file
+        tags: [],
+        description: '',
+        isDefault: false
       };
 
       // Add the resume to the context
