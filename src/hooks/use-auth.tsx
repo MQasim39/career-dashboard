@@ -82,6 +82,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = async (email: string, password: string, name: string) => {
     try {
       setLoading(true);
+      // NOTE: Temporarily disabled email verification for development
+      // In production, set emailRedirectTo and remove skipConfirmation
       const { error } = await supabase.auth.signUp({ 
         email, 
         password,
@@ -89,6 +91,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           data: {
             full_name: name,
           },
+          // Skip email verification temporarily for development
+          emailRedirectTo: undefined,
         },
       });
       
@@ -96,13 +100,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw error;
       }
       
-      toast({
-        title: "Account created!",
-        description: "Please check your email for a confirmation link.",
+      // Now immediately sign in the user after successful signup
+      // This bypasses the email verification step
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password
       });
       
-      // Navigate to login page after successful signup
-      navigate("/auth/login");
+      if (signInError) {
+        throw signInError;
+      }
+      
+      toast({
+        title: "Account created!",
+        description: "Your account has been created and you're now signed in.",
+      });
+      
+      // Navigate to dashboard after successful signup and auto-login
+      navigate("/");
     } catch (error: any) {
       toast({
         title: "Sign up failed",

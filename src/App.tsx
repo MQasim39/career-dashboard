@@ -22,6 +22,7 @@ import Login from "@/pages/auth/Login";
 import SignUp from "@/pages/auth/SignUp";
 import ForgotPassword from "@/pages/auth/ForgotPassword";
 import UpdatePassword from "@/pages/auth/UpdatePassword";
+import Index from "@/pages/Index";
 
 const queryClient = new QueryClient();
 
@@ -43,6 +44,9 @@ const App = () => (
                 <TooltipProvider>
                   <Toaster />
                   <Routes>
+                    {/* Landing page route */}
+                    <Route path="/landing" element={<Index />} />
+                    
                     {/* Auth routes */}
                     <Route path="/auth" element={<AuthLayout />}>
                       <Route path="login" element={<Login />} />
@@ -65,8 +69,8 @@ const App = () => (
                       <Route path="settings" element={<Settings />} />
                     </Route>
                     
-                    {/* Redirect / to /auth/login when no path is specified */}
-                    <Route path="*" element={<NotFound />} />
+                    {/* Redirect to landing page for new users */}
+                    <Route path="*" element={<Navigate to="/landing" replace />} />
                   </Routes>
                 </TooltipProvider>
               </ResumesProvider>
