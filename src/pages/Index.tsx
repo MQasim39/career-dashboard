@@ -10,7 +10,7 @@ import {
   Clock, 
   Target, 
   LineChart, 
-  Robot, 
+  Bot, 
   User, 
   Mail, 
   Github, 
@@ -169,7 +169,7 @@ const Index = () => {
               </ul>
             </div>
             <div className="flex flex-col p-6 bg-card text-card-foreground rounded-lg border shadow-sm hover:shadow-md transition-shadow">
-              <Robot className="h-10 w-10 text-primary mb-4" />
+              <Bot className="h-10 w-10 text-primary mb-4" />
               <h3 className="font-bold text-xl mb-2">AI Assistant</h3>
               <p className="text-muted-foreground flex-grow">
                 Get personalized career advice and application assistance from our AI assistant.
