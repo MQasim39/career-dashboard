@@ -1,8 +1,11 @@
-import { useLocation } from "react-router-dom";
+
+import { useLocation, Link } from "react-router-dom";
 import { useEffect } from "react";
+import { useAuth } from "@/hooks/use-auth";
 
 const NotFound = () => {
   const location = useLocation();
+  const { user } = useAuth();
 
   useEffect(() => {
     console.error(
@@ -16,9 +19,12 @@ const NotFound = () => {
       <div className="text-center">
         <h1 className="text-4xl font-bold mb-4">404</h1>
         <p className="text-xl text-gray-600 mb-4">Oops! Page not found</p>
-        <a href="/" className="text-blue-500 hover:text-blue-700 underline">
-          Return to Home
-        </a>
+        <Link 
+          to={user ? "/dashboard" : "/"} 
+          className="text-blue-500 hover:text-blue-700 underline"
+        >
+          Return to {user ? "Dashboard" : "Home"}
+        </Link>
       </div>
     </div>
   );

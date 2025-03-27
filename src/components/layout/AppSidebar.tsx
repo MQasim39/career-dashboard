@@ -107,7 +107,7 @@ const AppSidebar = () => {
               <TooltipTrigger asChild>
                 <div>
                   <SidebarLink
-                    to="/"
+                    to="/dashboard"
                     icon={<Home className="h-5 w-5" />}
                     text="Dashboard"
                     collapsed={collapsed}
@@ -120,7 +120,7 @@ const AppSidebar = () => {
             </Tooltip>
           ) : (
             <SidebarLink
-              to="/"
+              to="/dashboard"
               icon={<Home className="h-5 w-5" />}
               text="Dashboard"
               collapsed={collapsed}
@@ -132,7 +132,7 @@ const AppSidebar = () => {
               <TooltipTrigger asChild>
                 <div>
                   <SidebarLink
-                    to="/jobs"
+                    to="/dashboard/jobs"
                     icon={<Briefcase className="h-5 w-5" />}
                     text="Jobs"
                     collapsed={collapsed}
@@ -145,7 +145,7 @@ const AppSidebar = () => {
             </Tooltip>
           ) : (
             <SidebarLink
-              to="/jobs"
+              to="/dashboard/jobs"
               icon={<Briefcase className="h-5 w-5" />}
               text="Jobs"
               collapsed={collapsed}
@@ -157,7 +157,7 @@ const AppSidebar = () => {
               <TooltipTrigger asChild>
                 <div>
                   <SidebarLink
-                    to="/resumes"
+                    to="/dashboard/resumes"
                     icon={<FileText className="h-5 w-5" />}
                     text="Resumes"
                     collapsed={collapsed}
@@ -170,7 +170,7 @@ const AppSidebar = () => {
             </Tooltip>
           ) : (
             <SidebarLink
-              to="/resumes"
+              to="/dashboard/resumes"
               icon={<FileText className="h-5 w-5" />}
               text="Resumes"
               collapsed={collapsed}
@@ -182,7 +182,7 @@ const AppSidebar = () => {
               <TooltipTrigger asChild>
                 <div>
                   <SidebarLink
-                    to="/agent"
+                    to="/dashboard/agent"
                     icon={<Bot className="h-5 w-5" />}
                     text="Agent"
                     collapsed={collapsed}
@@ -195,7 +195,7 @@ const AppSidebar = () => {
             </Tooltip>
           ) : (
             <SidebarLink
-              to="/agent"
+              to="/dashboard/agent"
               icon={<Bot className="h-5 w-5" />}
               text="Agent"
               collapsed={collapsed}
@@ -207,7 +207,7 @@ const AppSidebar = () => {
               <TooltipTrigger asChild>
                 <div>
                   <SidebarLink
-                    to="/settings"
+                    to="/dashboard/settings"
                     icon={<Settings className="h-5 w-5" />}
                     text="Settings"
                     collapsed={collapsed}
@@ -220,7 +220,7 @@ const AppSidebar = () => {
             </Tooltip>
           ) : (
             <SidebarLink
-              to="/settings"
+              to="/dashboard/settings"
               icon={<Settings className="h-5 w-5" />}
               text="Settings"
               collapsed={collapsed}
