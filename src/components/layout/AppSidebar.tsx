@@ -6,7 +6,6 @@ import {
   FileText, 
   Home, 
   LogOut, 
-  Menu, 
   Settings, 
   User, 
   Bot, 
@@ -38,11 +37,13 @@ const SidebarLink = ({ to, icon, text, collapsed }: SidebarLinkProps) => {
       to={to}
       className={({ isActive }) =>
         cn(
-          "flex items-center px-3 py-2 rounded-md transition-colors",
+          "flex items-center px-3 py-2 rounded-md transition-colors group",
           collapsed ? "justify-center" : "gap-3",
           isActive
             ? "bg-primary text-primary-foreground"
-            : "hover:bg-muted"
+            : "hover:bg-muted text-muted-foreground",
+          // Ensure text color is consistent with active/inactive states
+          "text-sm"
         )
       }
     >
