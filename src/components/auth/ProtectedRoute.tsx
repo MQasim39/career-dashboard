@@ -19,6 +19,7 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
       loading, 
       path: location.pathname,
       hasUser: !!user,
+      isVerified: user?.email_confirmed_at ? true : false,
       metadata: user?.user_metadata
     });
   }, [user, loading, location]);
@@ -39,8 +40,13 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   if (!user) {
     return <Navigate to="/auth/login" state={{ from: location }} replace />;
   }
+  
+  // Redirect to email verification if not verified
+  if (!user.email_confirmed_at) {
+    return <Navigate to="/auth/verify-email" state={{ from: location }} replace />;
+  }
 
-  // Render children if authenticated
+  // Render children if authenticated and verified
   return <>{children}</>;
 };
 

@@ -59,6 +59,7 @@ const SignUp = () => {
     try {
       setIsSubmitting(true);
       await signUp(data.email, data.password, data.name);
+      // No need to navigate here as the signUp function handles it
     } catch (error: any) {
       console.error("Sign up error:", error);
       setSignupError(error?.message || "Failed to create account. Please try again.");

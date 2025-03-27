@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Session, User } from "@supabase/supabase-js";
@@ -14,6 +13,8 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
   updateUserProfile: (metadata: { [key: string]: any }) => Promise<void>;
+  verifyEmail: (code: string) => Promise<void>;
+  resendVerificationCode: () => Promise<void>;
   loading: boolean;
 }
 
@@ -36,9 +37,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
         
         if (event === "SIGNED_IN") {
-          navigate("/dashboard");
+          if (session?.user?.email_confirmed_at) {
+            navigate("/dashboard");
+          } else {
+            navigate("/auth/verify-email");
+          }
         } else if (event === "SIGNED_OUT") {
           navigate("/");
+        } else if (event === "USER_UPDATED") {
+          if (session?.user?.email_confirmed_at) {
+            navigate("/dashboard");
+          }
         }
       }
     );
@@ -49,6 +58,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+      
+      if (session?.user && !session.user.email_confirmed_at) {
+        navigate("/auth/verify-email");
+      }
     });
 
     return () => subscription.unsubscribe();
@@ -82,17 +95,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = async (email: string, password: string, name: string) => {
     try {
       setLoading(true);
-      // NOTE: Temporarily disabled email verification for development
-      // In production, set emailRedirectTo and remove skipConfirmation
-      const { error } = await supabase.auth.signUp({ 
+      const { error, data } = await supabase.auth.signUp({ 
         email, 
         password,
         options: {
           data: {
             full_name: name,
           },
-          // Skip email verification temporarily for development
-          emailRedirectTo: undefined,
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       });
       
@@ -100,28 +110,97 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw error;
       }
       
-      // Now immediately sign in the user after successful signup
-      // This bypasses the email verification step
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-      
-      if (signInError) {
-        throw signInError;
+      if (data?.user && !data.user.email_confirmed_at) {
+        toast({
+          title: "Verification required",
+          description: "Please check your email for a verification code.",
+        });
+        navigate("/auth/verify-email");
+      } else {
+        toast({
+          title: "Account created!",
+          description: "Your account has been created and you're now signed in.",
+        });
       }
-      
-      toast({
-        title: "Account created!",
-        description: "Your account has been created and you're now signed in.",
-      });
-      
-      // Navigate to dashboard after successful signup and auto-login
-      navigate("/");
     } catch (error: any) {
       toast({
         title: "Sign up failed",
         description: error.message || "Please check your information and try again.",
+        variant: "destructive",
+      });
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyEmail = async (code: string) => {
+    try {
+      setLoading(true);
+      
+      const { error } = await supabase.auth.verifyOtp({
+        email: user?.email!,
+        token: code,
+        type: 'email',
+      });
+      
+      if (error) {
+        throw error;
+      }
+      
+      if (user) {
+        setUser({
+          ...user,
+          email_confirmed_at: new Date().toISOString(),
+        });
+      }
+      
+      toast({
+        title: "Email verified",
+        description: "Your email has been successfully verified.",
+      });
+      
+      navigate("/dashboard");
+    } catch (error: any) {
+      toast({
+        title: "Verification failed",
+        description: error.message || "Invalid or expired verification code.",
+        variant: "destructive",
+      });
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resendVerificationCode = async () => {
+    try {
+      setLoading(true);
+      
+      if (!user?.email) {
+        throw new Error("No email address found");
+      }
+      
+      const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email: user.email,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        }
+      });
+      
+      if (error) {
+        throw error;
+      }
+      
+      toast({
+        title: "Verification code sent",
+        description: "A new verification code has been sent to your email.",
+      });
+    } catch (error: any) {
+      toast({
+        title: "Failed to resend code",
+        description: error.message || "Please try again later.",
         variant: "destructive",
       });
       throw error;
@@ -135,7 +214,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setLoading(true);
       await supabase.auth.signOut();
       
-      // Clear any stored data if needed
       localStorage.removeItem("supabase.auth.token");
       
       toast({
@@ -143,7 +221,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         description: "You've been successfully signed out.",
       });
       
-      // Navigate to login page
       navigate("/auth/login");
     } catch (error: any) {
       toast({
@@ -173,7 +250,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         description: "Check your email for a password reset link.",
       });
       
-      // Navigate to login page after sending reset email
       navigate("/auth/login");
     } catch (error: any) {
       toast({
@@ -201,7 +277,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         description: "Your password has been successfully updated.",
       });
       
-      // Navigate to dashboard after updating password
       navigate("/");
     } catch (error: any) {
       toast({
@@ -226,7 +301,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw error;
       }
       
-      // Update the local user state with the new metadata
       if (user) {
         setUser({
           ...user,
@@ -261,6 +335,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         resetPassword,
         updatePassword,
         updateUserProfile,
+        verifyEmail,
+        resendVerificationCode,
         loading,
       }}
     >

@@ -22,6 +22,8 @@ import Login from "@/pages/auth/Login";
 import SignUp from "@/pages/auth/SignUp";
 import ForgotPassword from "@/pages/auth/ForgotPassword";
 import UpdatePassword from "@/pages/auth/UpdatePassword";
+import VerifyEmail from "@/pages/auth/VerifyEmail";
+import AuthCallback from "@/pages/auth/AuthCallback";
 import Index from "@/pages/Index";
 
 const queryClient = new QueryClient();
@@ -53,6 +55,8 @@ const App = () => (
                       <Route path="signup" element={<SignUp />} />
                       <Route path="forgot-password" element={<ForgotPassword />} />
                       <Route path="update-password" element={<UpdatePassword />} />
+                      <Route path="verify-email" element={<VerifyEmail />} />
+                      <Route path="callback" element={<AuthCallback />} />
                     </Route>
                     
                     {/* Protected routes */}
