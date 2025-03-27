@@ -129,12 +129,12 @@ const JobTracking = () => {
         </div>
         
         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-          <Select value={statusFilter || ""} onValueChange={(value) => setStatusFilter(value || null)}>
+          <Select value={statusFilter || "all"} onValueChange={(value) => setStatusFilter(value === "all" ? null : value)}>
             <SelectTrigger className="w-full sm:w-[180px]">
               <SelectValue placeholder="All Statuses" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">All Statuses</SelectItem>
+              <SelectItem value="all">All Statuses</SelectItem>
               <SelectItem value="applied">Applied</SelectItem>
               <SelectItem value="interview">Interview</SelectItem>
               <SelectItem value="offer">Offer</SelectItem>

@@ -101,7 +101,7 @@ const Resumes = () => {
         </div>
         
         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-          <Select value={typeFilter || ""} onValueChange={(value) => setTypeFilter(value || null)}>
+          <Select value={typeFilter || "all"} onValueChange={(value) => setTypeFilter(value === "all" ? null : value)}>
             <SelectTrigger className="w-full sm:w-[180px]">
               <SelectValue placeholder="All Types" />
             </SelectTrigger>
