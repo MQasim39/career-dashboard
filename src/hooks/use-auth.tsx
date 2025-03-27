@@ -28,7 +28,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const { toast } = useToast();
 
   useEffect(() => {
-    // Set up auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
         console.log("Auth state changed:", event, session?.user?.email);
@@ -52,7 +51,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
-    // Then check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
       console.log("Initial session check:", session?.user?.email);
       setSession(session);
@@ -110,18 +108,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw error;
       }
       
-      if (data?.user && !data.user.email_confirmed_at) {
-        toast({
-          title: "Verification required",
-          description: "Please check your email for a verification code.",
-        });
-        navigate("/auth/verify-email");
-      } else {
-        toast({
-          title: "Account created!",
-          description: "Your account has been created and you're now signed in.",
-        });
-      }
+      toast({
+        title: "Verification required",
+        description: "Please check your email for a verification code.",
+      });
+      navigate("/auth/verify-email");
     } catch (error: any) {
       toast({
         title: "Sign up failed",

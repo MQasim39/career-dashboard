@@ -24,6 +24,7 @@ const AuthCallback = () => {
       } 
       // If user exists but isn't verified, go to verification page
       else if (data.session?.user) {
+        // Make sure to navigate to verification page if email is not confirmed
         navigate("/auth/verify-email");
       } 
       // No session, go to login

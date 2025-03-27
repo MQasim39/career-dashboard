@@ -21,14 +21,19 @@ const VerifyEmail = () => {
   const [error, setError] = useState<string | null>(null);
   const [resendCooldown, setResendCooldown] = useState(0);
   
-  // If user is already verified or no user exists, redirect appropriately
+  // If user is already verified, redirect to dashboard
   useEffect(() => {
-    if (!user) {
-      navigate("/auth/login");
-    } else if (user.email_confirmed_at) {
+    if (user?.email_confirmed_at) {
       navigate("/dashboard");
     }
   }, [user, navigate]);
+
+  // If no user exists at all, redirect to login
+  useEffect(() => {
+    if (!loading && !user && !session) {
+      navigate("/auth/login");
+    }
+  }, [user, session, loading, navigate]);
 
   // Countdown timer for resend button
   useEffect(() => {
@@ -94,7 +99,7 @@ const VerifyEmail = () => {
     }
   };
 
-  if (!user || loading) {
+  if (loading) {
     return (
       <div className="flex justify-center items-center h-full">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
