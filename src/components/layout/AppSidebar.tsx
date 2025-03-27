@@ -35,6 +35,7 @@ const SidebarLink = ({ to, icon, text, collapsed }: SidebarLinkProps) => {
   return (
     <NavLink
       to={to}
+      end // This ensures exact path matching
       className={({ isActive }) =>
         cn(
           "flex items-center px-3 py-2 rounded-md transition-colors group",
@@ -42,7 +43,6 @@ const SidebarLink = ({ to, icon, text, collapsed }: SidebarLinkProps) => {
           isActive
             ? "bg-primary text-primary-foreground"
             : "hover:bg-muted text-muted-foreground",
-          // Ensure text color is consistent with active/inactive states
           "text-sm"
         )
       }
