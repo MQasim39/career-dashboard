@@ -27,7 +27,7 @@ import ResumeCard from "@/components/resumes/ResumeCard";
 import ResumeUpload from "@/components/resumes/ResumeUpload";
 import { useResumes } from "@/hooks/use-resumes";
 import { useAuth } from "@/hooks/use-auth";
-import { supabase, fromTable } from "@/integrations/supabase/client";
+import { supabase, fromParsedResumes } from "@/integrations/supabase/client";
 
 const Resumes = () => {
   const { resumes } = useResumes();
@@ -53,7 +53,7 @@ const Resumes = () => {
       if (!user) return;
       
       try {
-        const { data, error } = await fromTable('parsed_resumes')
+        const { data, error } = await fromParsedResumes()
           .select('resume_id')
           .eq('user_id', user.id);
           

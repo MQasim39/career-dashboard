@@ -1,10 +1,11 @@
+
 import { useState, useEffect } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Plus, X, Check, Pencil } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { supabase, fromTable } from "@/integrations/supabase/client";
+import { supabase, fromParsedResumes } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 
 interface ResumeSkillsListProps {
@@ -24,8 +25,8 @@ const ResumeSkillsList = ({ resumeId, userId }: ResumeSkillsListProps) => {
     const fetchSkills = async () => {
       setIsLoading(true);
       try {
-        // Use the fromTable helper to query parsed_resumes
-        const { data, error } = await fromTable('parsed_resumes')
+        // Use the type-safe helper for parsed_resumes
+        const { data, error } = await fromParsedResumes()
           .select('skills')
           .eq('resume_id', resumeId)
           .eq('user_id', userId)
@@ -79,8 +80,8 @@ const ResumeSkillsList = ({ resumeId, userId }: ResumeSkillsListProps) => {
 
   const updateSkillsInDatabase = async (updatedSkills: string[]) => {
     try {
-      // Use the fromTable helper for the upsert operation
-      const { error } = await fromTable('parsed_resumes')
+      // Use the type-safe helper for the upsert operation
+      const { error } = await fromParsedResumes()
         .upsert({
           user_id: userId,
           resume_id: resumeId,

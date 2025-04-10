@@ -24,3 +24,20 @@ export const supabase = createClient<Database>(
 export const fromTable = (tableName: string) => {
   return supabase.from(tableName as any);
 };
+
+// Type-safe helper for the parsed_resumes table
+// This lets TypeScript know what fields are in the table when we use this function
+export const fromParsedResumes = () => {
+  return fromTable('parsed_resumes') as unknown as ReturnType<typeof supabase.from<{
+    id: string;
+    user_id: string;
+    resume_id: string;
+    skills: string[];
+    experience: any[];
+    education: any[];
+    personal_info: Record<string, any>;
+    created_at: string;
+    updated_at: string;
+    full_text: string | null;
+  }>>;
+};
