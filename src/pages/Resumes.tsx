@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { 
   Search, 
@@ -28,7 +27,7 @@ import ResumeCard from "@/components/resumes/ResumeCard";
 import ResumeUpload from "@/components/resumes/ResumeUpload";
 import { useResumes } from "@/hooks/use-resumes";
 import { useAuth } from "@/hooks/use-auth";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, fromTable } from "@/integrations/supabase/client";
 
 const Resumes = () => {
   const { resumes } = useResumes();
@@ -41,9 +40,7 @@ const Resumes = () => {
   const [activeTab, setActiveTab] = useState("all");
   const [parsedResumeIds, setParsedResumeIds] = useState<string[]>([]);
 
-  // Add loading state management
   useEffect(() => {
-    // Simulate data loading with a short timeout
     const timer = setTimeout(() => {
       setIsLoading(false);
     }, 500);
@@ -51,20 +48,18 @@ const Resumes = () => {
     return () => clearTimeout(timer);
   }, []);
 
-  // Fetch parsed resume IDs for the current user
   useEffect(() => {
     const fetchParsedResumeIds = async () => {
       if (!user) return;
       
       try {
-        const { data, error } = await supabase
-          .from('parsed_resumes')
+        const { data, error } = await fromTable('parsed_resumes')
           .select('resume_id')
           .eq('user_id', user.id);
           
         if (error) throw error;
         
-        setParsedResumeIds(data.map(item => item.resume_id));
+        setParsedResumeIds(data?.map(item => item.resume_id) || []);
       } catch (error) {
         console.error("Error fetching parsed resume IDs:", error);
       }
@@ -73,23 +68,18 @@ const Resumes = () => {
     fetchParsedResumeIds();
   }, [user]);
 
-  // Filter and sort resumes
   const filteredResumes = resumes.filter(resume => {
-    // Search filter
     const searchMatch = 
       resume.name.toLowerCase().includes(search.toLowerCase());
     
-    // Type filter
     const typeMatch = typeFilter ? resume.type === typeFilter : true;
     
-    // Tab filter (parsed vs. all)
     const tabMatch = activeTab === "all" || 
       (activeTab === "parsed" && parsedResumeIds.includes(resume.id));
     
     return searchMatch && typeMatch && tabMatch;
   });
 
-  // Sort resumes
   const sortedResumes = [...filteredResumes].sort((a, b) => {
     let comparison = 0;
     

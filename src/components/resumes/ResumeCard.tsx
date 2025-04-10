@@ -1,3 +1,4 @@
+
 import { File, Trash2, Eye, Download, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -19,6 +20,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { 
+  Card, 
+  CardHeader, 
+  CardContent, 
+  CardFooter,
+  CardTitle, 
+  CardDescription 
+} from "@/components/ui/card";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 import { Resume } from "@/types/resume";
