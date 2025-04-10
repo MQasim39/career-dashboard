@@ -3,7 +3,8 @@ import { useState, useEffect } from "react";
 import { 
   Search, 
   SlidersHorizontal,
-  Loader2
+  Loader2,
+  FileText
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -22,17 +23,23 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import ResumeCard from "@/components/resumes/ResumeCard";
 import ResumeUpload from "@/components/resumes/ResumeUpload";
 import { useResumes } from "@/hooks/use-resumes";
+import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
 
 const Resumes = () => {
   const { resumes } = useResumes();
+  const { user } = useAuth();
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<string | null>(null);
   const [sortBy, setSortBy] = useState("dateUploaded");
   const [sortOrder, setSortOrder] = useState("desc");
   const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("all");
+  const [parsedResumeIds, setParsedResumeIds] = useState<string[]>([]);
 
   // Add loading state management
   useEffect(() => {
@@ -44,6 +51,28 @@ const Resumes = () => {
     return () => clearTimeout(timer);
   }, []);
 
+  // Fetch parsed resume IDs for the current user
+  useEffect(() => {
+    const fetchParsedResumeIds = async () => {
+      if (!user) return;
+      
+      try {
+        const { data, error } = await supabase
+          .from('parsed_resumes')
+          .select('resume_id')
+          .eq('user_id', user.id);
+          
+        if (error) throw error;
+        
+        setParsedResumeIds(data.map(item => item.resume_id));
+      } catch (error) {
+        console.error("Error fetching parsed resume IDs:", error);
+      }
+    };
+    
+    fetchParsedResumeIds();
+  }, [user]);
+
   // Filter and sort resumes
   const filteredResumes = resumes.filter(resume => {
     // Search filter
@@ -53,7 +82,11 @@ const Resumes = () => {
     // Type filter
     const typeMatch = typeFilter ? resume.type === typeFilter : true;
     
-    return searchMatch && typeMatch;
+    // Tab filter (parsed vs. all)
+    const tabMatch = activeTab === "all" || 
+      (activeTab === "parsed" && parsedResumeIds.includes(resume.id));
+    
+    return searchMatch && typeMatch && tabMatch;
   });
 
   // Sort resumes
@@ -160,10 +193,26 @@ const Resumes = () => {
         </div>
       </div>
       
+      {user && (
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="w-[400px] mb-6">
+            <TabsTrigger value="all" className="flex-1">
+              All Resumes ({resumes.length})
+            </TabsTrigger>
+            <TabsTrigger value="parsed" className="flex-1">
+              Parsed Resumes ({parsedResumeIds.length})
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+      )}
+      
       {sortedResumes.length > 0 ? (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {sortedResumes.map((resume) => (
-            <ResumeCard key={resume.id} resume={resume} />
+            <ResumeCard 
+              key={resume.id} 
+              resume={resume} 
+            />
           ))}
         </div>
       ) : (
@@ -171,10 +220,20 @@ const Resumes = () => {
           <h3 className="text-lg font-medium mb-2">No Resumes Found</h3>
           <p className="text-muted-foreground mb-6">
             {resumes.length > 0 
-              ? "Try adjusting your search or filter criteria" 
+              ? activeTab === "parsed"
+                ? "You haven't parsed any resumes yet. Upload a resume and select 'Parse Resume'."
+                : "Try adjusting your search or filter criteria" 
               : "Upload your first resume to get started with your job search"}
           </p>
           {resumes.length === 0 && <ResumeUpload />}
+          {resumes.length > 0 && activeTab === "parsed" && (
+            <div className="flex justify-center">
+              <Button className="gap-2">
+                <FileText className="h-4 w-4" />
+                <span>Parse Your First Resume</span>
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>
