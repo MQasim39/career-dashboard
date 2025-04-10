@@ -1,9 +1,10 @@
 
 import { useState, useEffect } from "react";
-import { Filter, Plus, Search } from "lucide-react";
+import { Filter, Plus, Search, Cog } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useJobs } from "@/hooks/use-jobs";
+import { Link } from "react-router-dom";
 import JobTracking from "@/components/jobs/JobTracking";
 
 const Jobs = () => {
@@ -29,10 +30,17 @@ const Jobs = () => {
           </p>
         </div>
         
-        <Button className="gap-2">
-          <Plus className="h-4 w-4" />
-          <span>Add New Job</span>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button as={Link} to="/job-scraping" variant="outline" className="gap-2">
+            <Cog className="h-4 w-4" />
+            <span>Job Scraping</span>
+          </Button>
+          
+          <Button className="gap-2">
+            <Plus className="h-4 w-4" />
+            <span>Add New Job</span>
+          </Button>
+        </div>
       </div>
       
       <div className="flex flex-col sm:flex-row gap-4 items-center justify-between mb-6">
@@ -62,10 +70,16 @@ const Jobs = () => {
           <p className="text-muted-foreground text-center max-w-md mb-6">
             Start tracking your job applications by adding your first job
           </p>
-          <Button>
-            <Plus className="h-4 w-4 mr-2" />
-            Add Your First Job
-          </Button>
+          <div className="flex flex-wrap gap-3 justify-center">
+            <Button>
+              <Plus className="h-4 w-4 mr-2" />
+              Add Your First Job
+            </Button>
+            <Button variant="outline" as={Link} to="/job-scraping">
+              <Search className="h-4 w-4 mr-2" />
+              Find Jobs
+            </Button>
+          </div>
         </div>
       )}
     </div>

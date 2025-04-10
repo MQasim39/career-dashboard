@@ -16,6 +16,7 @@ export type Database = {
           description: string | null
           id: string
           industry: string | null
+          industry_id: string | null
           job_count: number | null
           location: string
           logo_url: string | null
@@ -30,6 +31,7 @@ export type Database = {
           description?: string | null
           id?: string
           industry?: string | null
+          industry_id?: string | null
           job_count?: number | null
           location: string
           logo_url?: string | null
@@ -44,6 +46,7 @@ export type Database = {
           description?: string | null
           id?: string
           industry?: string | null
+          industry_id?: string | null
           job_count?: number | null
           location?: string
           logo_url?: string | null
@@ -52,7 +55,15 @@ export type Database = {
           social_links?: Json | null
           website_url?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "companies_industry_id_fkey"
+            columns: ["industry_id"]
+            isOneToOne: false
+            referencedRelation: "industries"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       featured_jobs: {
         Row: {
@@ -118,6 +129,33 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      industries: {
+        Row: {
+          created_at: string
+          description: string | null
+          icon: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          icon?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       job_categories: {
         Row: {
@@ -187,6 +225,39 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      job_sources: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          logo_url: string | null
+          name: string
+          type: string
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          logo_url?: string | null
+          name: string
+          type: string
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          logo_url?: string | null
+          name?: string
+          type?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: []
       }
       parsed_resumes: {
         Row: {
@@ -345,6 +416,133 @@ export type Database = {
           url?: string | null
         }
         Relationships: []
+      }
+      scraper_configurations: {
+        Row: {
+          created_at: string
+          experience_levels: string[] | null
+          filters: Json | null
+          frequency: string
+          id: string
+          industries: string[] | null
+          is_active: boolean
+          job_types: string[] | null
+          keywords: string[] | null
+          last_error: string | null
+          last_run: string | null
+          locations: string[] | null
+          name: string
+          salary_range: Json | null
+          source_id: string | null
+          updated_at: string
+          url: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          experience_levels?: string[] | null
+          filters?: Json | null
+          frequency?: string
+          id?: string
+          industries?: string[] | null
+          is_active?: boolean
+          job_types?: string[] | null
+          keywords?: string[] | null
+          last_error?: string | null
+          last_run?: string | null
+          locations?: string[] | null
+          name: string
+          salary_range?: Json | null
+          source_id?: string | null
+          updated_at?: string
+          url?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          experience_levels?: string[] | null
+          filters?: Json | null
+          frequency?: string
+          id?: string
+          industries?: string[] | null
+          is_active?: boolean
+          job_types?: string[] | null
+          keywords?: string[] | null
+          last_error?: string | null
+          last_run?: string | null
+          locations?: string[] | null
+          name?: string
+          salary_range?: Json | null
+          source_id?: string | null
+          updated_at?: string
+          url?: string | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scraper_configurations_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "job_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      scraper_queue: {
+        Row: {
+          completed_at: string | null
+          configuration_id: string
+          created_at: string
+          error_message: string | null
+          id: string
+          max_retries: number
+          priority: number
+          result_stats: Json | null
+          retry_count: number
+          scheduled_for: string
+          started_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          configuration_id: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          max_retries?: number
+          priority?: number
+          result_stats?: Json | null
+          retry_count?: number
+          scheduled_for?: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          configuration_id?: string
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          max_retries?: number
+          priority?: number
+          result_stats?: Json | null
+          retry_count?: number
+          scheduled_for?: string
+          started_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scraper_queue_configuration_id_fkey"
+            columns: ["configuration_id"]
+            isOneToOne: false
+            referencedRelation: "scraper_configurations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       scraping_configurations: {
         Row: {
