@@ -28,7 +28,8 @@ export const fromTable = (tableName: string) => {
 // Type-safe helper for the parsed_resumes table
 // This lets TypeScript know what fields are in the table when we use this function
 export const fromParsedResumes = () => {
-  return fromTable('parsed_resumes') as unknown as ReturnType<typeof supabase.from<{
+  // Define the type for parsed resume
+  type ParsedResume = {
     id: string;
     user_id: string;
     resume_id: string;
@@ -39,5 +40,8 @@ export const fromParsedResumes = () => {
     created_at: string;
     updated_at: string;
     full_text: string | null;
-  }>>;
+  };
+  
+  // Use the fromTable helper but cast the result to the correct type
+  return fromTable('parsed_resumes') as any as ReturnType<typeof supabase.from<ParsedResume>>;
 };
