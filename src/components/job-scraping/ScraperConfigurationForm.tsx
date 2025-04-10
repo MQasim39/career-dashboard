@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -41,8 +40,8 @@ const formSchema = z.object({
   industries: z.array(z.string()).optional(),
   experience_levels: z.array(z.string()).optional(),
   salary_range: z.object({
-    min: z.number().nullable().optional(),
-    max: z.number().nullable().optional(),
+    min: z.number().nullable(),
+    max: z.number().nullable(),
     currency: z.string().default("USD"),
   }).optional(),
   is_active: z.boolean().default(true),
@@ -146,11 +145,19 @@ export const ScraperConfigurationForm = ({
   };
 
   const onFormSubmit = (values: FormValues) => {
-    onSubmit({
+    // Ensure the salary_range is properly formatted
+    const formattedData: Partial<ScraperConfiguration> = {
       ...values,
       keywords,
       locations,
-    });
+      salary_range: values.salary_range ? {
+        min: values.salary_range.min ?? null,
+        max: values.salary_range.max ?? null,
+        currency: values.salary_range.currency || "USD"
+      } : undefined
+    };
+    
+    onSubmit(formattedData);
   };
 
   const jobTypeOptions = [

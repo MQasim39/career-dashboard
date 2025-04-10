@@ -31,7 +31,7 @@ const Jobs = () => {
         </div>
         
         <div className="flex flex-wrap gap-2">
-          <Button as={Link} to="/job-scraping" variant="outline" className="gap-2">
+          <Button variant="outline" className="gap-2" onClick={() => window.location.href = '/job-scraping'}>
             <Cog className="h-4 w-4" />
             <span>Job Scraping</span>
           </Button>
@@ -75,7 +75,7 @@ const Jobs = () => {
               <Plus className="h-4 w-4 mr-2" />
               Add Your First Job
             </Button>
-            <Button variant="outline" as={Link} to="/job-scraping">
+            <Button variant="outline" onClick={() => window.location.href = '/job-scraping'}>
               <Search className="h-4 w-4 mr-2" />
               Find Jobs
             </Button>
