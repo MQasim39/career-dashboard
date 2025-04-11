@@ -3,3 +3,9 @@ project_id = "egiyjyvprrsnvstfnfpf"
 
 [functions.scrape-jobs]
 verify_jwt = true
+
+[functions.generate-job-matches]
+verify_jwt = true
+
+[functions.ai-agent]
+verify_jwt = true

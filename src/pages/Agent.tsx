@@ -4,7 +4,7 @@ import { Bot, Bell, Mail, FileText, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
-import { 
+import {
   Card,
   CardContent,
   CardDescription,
@@ -26,7 +26,7 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from "@/components/ui/tooltip";
-import { 
+import {
   Accordion,
   AccordionContent,
   AccordionItem,
@@ -75,7 +75,7 @@ const Agent = () => {
       const savedSalaryRange = localStorage.getItem(`agent_salaryRange_${user.id}`);
       const savedEmailAlerts = localStorage.getItem(`agent_emailAlerts_${user.id}`);
       const savedBrowserAlerts = localStorage.getItem(`agent_browserAlerts_${user.id}`);
-      
+
       if (savedState === 'true') setAgentEnabled(true);
       if (savedConfig) setConfigId(savedConfig);
       if (savedLocation) setLocation(savedLocation);
@@ -102,100 +102,56 @@ const Agent = () => {
       }
     }
   }, [
-    user, 
-    agentEnabled, 
-    configId, 
-    location, 
-    jobType, 
-    department, 
-    salaryRange, 
-    emailAlerts, 
+    user,
+    agentEnabled,
+    configId,
+    location,
+    jobType,
+    department,
+    salaryRange,
+    emailAlerts,
     browserAlerts
   ]);
 
   useEffect(() => {
-    const triggerJobScraping = async () => {
+    const activateAIAgent = async () => {
       if (!agentEnabled || !user || !defaultResumeId) return;
-      
+
       setIsProcessing(true);
       setLastError(null);
-      
+
       try {
-        // Create config data but don't include resume_id as a direct column
-        // Instead, store it in a metadata field which should be part of the filters JSON column
-        const configData = {
-          name: `Auto Agent Job Search - ${new Date().toISOString().split('T')[0]}`,
-          user_id: user.id,
-          keywords: department ? [department] : [],
-          locations: location ? [location] : [],
-          job_types: [jobType],
-          salary_range: {
-            min: salaryRange[0],
-            max: salaryRange[1], 
-            currency: "USD"
-          },
-          filters: {
+        // Call the AI agent function
+        const { data, error: functionError } = await supabase.functions.invoke('ai-agent', {
+          body: {
+            user_id: user.id,
             resume_id: defaultResumeId,
+            location: location,
+            job_type: jobType,
+            department: department,
+            salary_range: salaryRange,
             email_alerts: emailAlerts,
             browser_alerts: browserAlerts
-          },
-          is_active: true,
-          frequency: "daily"
-        };
-        
-        const { data: configResult, error: configError } = await supabase
-          .from('scraper_configurations')
-          .insert(configData)
-          .select()
-          .single();
-          
-        if (configError) throw configError;
-        
-        // Save the config ID for future reference
-        if (configResult) {
-          setConfigId(configResult.id);
+          }
+        });
+
+        if (functionError) throw functionError;
+
+        // Save the config ID for future reference if returned
+        if (data && data.config_id) {
+          setConfigId(data.config_id);
         }
-        
-        // Properly type the queue result
-        const { data: queueResult, error: queueError } = await supabase
-          .from('scraper_queue')
-          .insert({
-            configuration_id: configResult.id,
-            status: 'pending',
-            scheduled_for: new Date().toISOString(),
-            priority: 10
-          })
-          .select<'*', QueueItem>(); // Properly type the response
-          
-        if (queueError) throw queueError;
-        
-        // Safely check if we have a valid queue item
-        const queueItemId = queueResult && queueResult.length > 0 ? queueResult[0].id : null;
-        
-        if (queueItemId) {
-          const { error: functionError } = await supabase.functions.invoke('scrape-jobs', {
-            body: { 
-              configuration_id: configResult.id,
-              queue_item_id: queueItemId,
-              resume_id: defaultResumeId // Pass resume_id as a separate parameter to the function
-            }
-          });
-          
-          if (functionError) throw functionError;
-        } else {
-          throw new Error("Failed to create queue item");
-        }
-        
+
         toast({
-          title: "Agent activated",
-          description: "Your job agent is now searching for matching positions.",
+          title: "AI Agent activated",
+          description: "Your AI job agent is now searching for matching positions.",
         });
       } catch (error: any) {
-        console.error("Error activating agent:", error);
+        console.error("Error activating AI agent:", error);
         setLastError(error.message || "Unknown error");
         toast({
-          title: "Agent activation failed",
-          description: error.message || "There was an error activating your job agent.",
+          title: "AI Agent activation failed",
+          description: error.message || "There was an error activating your AI job agent.",
           variant: "destructive",
         });
         setAgentEnabled(false);
@@ -203,9 +159,9 @@ const Agent = () => {
         setIsProcessing(false);
       }
     };
-    
+
     if (agentEnabled) {
-      triggerJobScraping();
+      activateAIAgent();
     }
   }, [agentEnabled, user, defaultResumeId, location, jobType, department, salaryRange, toast, emailAlerts, browserAlerts]);
 
@@ -223,7 +179,7 @@ const Agent = () => {
           <Card className="shadow-sm">
             <CardHeader className="pb-3">
               <div className="flex justify-between items-center">
-                <CardTitle className="text-xl font-heading">Agent Status</CardTitle>
+                <CardTitle className="text-xl font-heading">AI Agent Status</CardTitle>
                 <Switch
                   checked={agentEnabled}
                   onCheckedChange={setAgentEnabled}
@@ -231,20 +187,20 @@ const Agent = () => {
                 />
               </div>
               <CardDescription>
-                {agentEnabled 
-                  ? "Your job search agent is actively searching for matching positions"
-                  : "Enable the agent to start automated job searching"}
+                {agentEnabled
+                  ? "Your AI job agent is actively searching for matching positions"
+                  : "Enable the AI agent to start intelligent job matching"}
               </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
                 <Bot className="h-5 w-5 text-primary" />
                 <span className="text-sm">
-                  {isProcessing 
-                    ? "Agent is initializing and starting jobs search..."
+                  {isProcessing
+                    ? "AI agent is analyzing your resume and searching for jobs..."
                     : agentEnabled
-                    ? "Agent is currently searching based on your active resume and filters"
-                    : "Agent is currently inactive"}
+                    ? "AI agent is actively matching jobs based on your resume and preferences"
+                    : "AI agent is currently inactive"}
                 </span>
                 {isProcessing && (
                   <div className="ml-auto">
@@ -252,7 +208,7 @@ const Agent = () => {
                   </div>
                 )}
               </div>
-              
+
               {lastError && (
                 <Alert variant="destructive" className="mt-3">
                   <AlertDescription className="flex items-center gap-2">
@@ -261,7 +217,7 @@ const Agent = () => {
                   </AlertDescription>
                 </Alert>
               )}
-              
+
               {!defaultResumeId && (
                 <div className="mt-3 text-sm text-amber-500 flex items-center gap-2">
                   <FileText className="h-4 w-4" />
@@ -282,8 +238,8 @@ const Agent = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="location">Location</Label>
-                  <Input 
-                    id="location" 
+                  <Input
+                    id="location"
                     placeholder="City, State, or Remote"
                     value={location}
                     onChange={(e) => setLocation(e.target.value)}
@@ -308,8 +264,8 @@ const Agent = () => {
 
               <div className="space-y-2">
                 <Label htmlFor="department">Department</Label>
-                <Input 
-                  id="department" 
+                <Input
+                  id="department"
                   placeholder="Engineering, Marketing, etc."
                   value={department}
                   onChange={(e) => setDepartment(e.target.value)}
@@ -412,7 +368,7 @@ const Agent = () => {
                       ))}
                     </SelectContent>
                   </Select>
-                  
+
                   <p className="text-xs text-muted-foreground mt-4">
                     The selected resume will be used to match against job requirements
                   </p>
@@ -452,7 +408,7 @@ const Agent = () => {
                   onCheckedChange={setBrowserAlerts}
                 />
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Mail className="h-4 w-4 text-primary" />
@@ -466,7 +422,7 @@ const Agent = () => {
                   onCheckedChange={setEmailAlerts}
                 />
               </div>
-              
+
               <div className="pt-2">
                 <TooltipProvider>
                   <Tooltip>
