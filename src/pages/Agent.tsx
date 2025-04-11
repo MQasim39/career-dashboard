@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { Bot, Filter, Bell, Mail, Sliders, FileText } from "lucide-react";
+
+import { useState, useEffect } from "react";
+import { Bot, Bell, Mail, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
@@ -26,6 +27,9 @@ import {
   AccordionTrigger
 } from "@/components/ui/accordion";
 import { useResumes } from "@/hooks/use-resumes";
+import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/hooks/use-auth";
 
 const Agent = () => {
   const { resumes, defaultResumeId, setDefaultResume } = useResumes();
@@ -36,6 +40,88 @@ const Agent = () => {
   const [salaryRange, setSalaryRange] = useState([40000, 120000]);
   const [emailAlerts, setEmailAlerts] = useState(true);
   const [browserAlerts, setBrowserAlerts] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const { toast } = useToast();
+  const { user } = useAuth();
+
+  // Effect to trigger job scraping when agent is enabled
+  useEffect(() => {
+    const triggerJobScraping = async () => {
+      if (!agentEnabled || !user || !defaultResumeId) return;
+      
+      setIsProcessing(true);
+      
+      try {
+        // Create a scraper configuration based on agent settings
+        const configData = {
+          name: `Auto Agent Job Search - ${new Date().toISOString().split('T')[0]}`,
+          user_id: user.id,
+          resume_id: defaultResumeId,
+          keywords: department ? [department] : [],
+          locations: location ? [location] : [],
+          job_types: [jobType],
+          salary_range: {
+            min: salaryRange[0],
+            max: salaryRange[1], 
+            currency: "USD"
+          },
+          is_active: true,
+          frequency: "daily"
+        };
+        
+        // Store the configuration in the database
+        const { data: configResult, error: configError } = await supabase
+          .from('scraper_configurations')
+          .insert(configData)
+          .select()
+          .single();
+          
+        if (configError) throw configError;
+        
+        // Queue the scraping job
+        const { data: queueResult, error: queueError } = await supabase
+          .from('scraper_queue')
+          .insert({
+            configuration_id: configResult.id,
+            status: 'pending',
+            scheduled_for: new Date().toISOString(),
+            priority: 10
+          });
+          
+        if (queueError) throw queueError;
+        
+        // Trigger the scraper function
+        const { error: functionError } = await supabase.functions.invoke('scrape-jobs', {
+          body: { 
+            configuration_id: configResult.id,
+            queue_item_id: queueResult[0].id
+          }
+        });
+        
+        if (functionError) throw functionError;
+        
+        toast({
+          title: "Agent activated",
+          description: "Your job agent is now searching for matching positions.",
+        });
+      } catch (error) {
+        console.error("Error activating agent:", error);
+        toast({
+          title: "Agent activation failed",
+          description: "There was an error activating your job agent.",
+          variant: "destructive",
+        });
+        // Revert the toggle if there was an error
+        setAgentEnabled(false);
+      } finally {
+        setIsProcessing(false);
+      }
+    };
+    
+    if (agentEnabled) {
+      triggerJobScraping();
+    }
+  }, [agentEnabled, user, defaultResumeId, location, jobType, department, salaryRange, toast]);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -56,6 +142,7 @@ const Agent = () => {
                 <Switch
                   checked={agentEnabled}
                   onCheckedChange={setAgentEnabled}
+                  disabled={isProcessing || !defaultResumeId}
                 />
               </div>
               <CardDescription>
@@ -68,11 +155,24 @@ const Agent = () => {
               <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
                 <Bot className="h-5 w-5 text-primary" />
                 <span className="text-sm">
-                  {agentEnabled
+                  {isProcessing 
+                    ? "Agent is initializing and starting jobs search..."
+                    : agentEnabled
                     ? "Agent is currently searching based on your active resume and filters"
                     : "Agent is currently inactive"}
                 </span>
+                {isProcessing && (
+                  <div className="ml-auto">
+                    <div className="h-4 w-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                )}
               </div>
+              {!defaultResumeId && (
+                <div className="mt-3 text-sm text-amber-500 flex items-center gap-2">
+                  <FileText className="h-4 w-4" />
+                  <span>You need to select a resume to enable the agent</span>
+                </div>
+              )}
             </CardContent>
           </Card>
 

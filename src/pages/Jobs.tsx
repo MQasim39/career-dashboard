@@ -1,10 +1,9 @@
 
 import { useState, useEffect } from "react";
-import { Filter, Plus, Search, Cog } from "lucide-react";
+import { Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useJobs } from "@/hooks/use-jobs";
-import { Link } from "react-router-dom";
 import JobTracking from "@/components/jobs/JobTracking";
 
 const Jobs = () => {
@@ -30,12 +29,7 @@ const Jobs = () => {
           </p>
         </div>
         
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" className="gap-2" onClick={() => window.location.href = '/job-scraping'}>
-            <Cog className="h-4 w-4" />
-            <span>Job Scraping</span>
-          </Button>
-          
+        <div className="flex flex-wrap gap-2">          
           <Button className="gap-2">
             <Plus className="h-4 w-4" />
             <span>Add New Job</span>
@@ -48,11 +42,6 @@ const Jobs = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input placeholder="Search jobs..." className="pl-9 w-full sm:w-[300px]" />
         </div>
-        
-        <Button variant="outline" className="w-full sm:w-auto gap-2">
-          <Filter className="h-4 w-4" />
-          <span>Filter</span>
-        </Button>
       </div>
       
       {loading ? (
@@ -68,16 +57,16 @@ const Jobs = () => {
           </div>
           <h3 className="font-medium text-lg mb-2">No job applications yet</h3>
           <p className="text-muted-foreground text-center max-w-md mb-6">
-            Start tracking your job applications by adding your first job
+            Start tracking your job applications by adding your first job or activate your Job Agent to find matching positions
           </p>
           <div className="flex flex-wrap gap-3 justify-center">
             <Button>
               <Plus className="h-4 w-4 mr-2" />
               Add Your First Job
             </Button>
-            <Button variant="outline" onClick={() => window.location.href = '/job-scraping'}>
+            <Button variant="outline" onClick={() => window.location.href = '/agent'}>
               <Search className="h-4 w-4 mr-2" />
-              Find Jobs
+              Setup Job Agent
             </Button>
           </div>
         </div>

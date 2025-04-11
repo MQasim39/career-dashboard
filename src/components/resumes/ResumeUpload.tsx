@@ -20,6 +20,8 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { useResumes } from "@/hooks/use-resumes";
+import { useAuth } from "@/hooks/use-auth";
+import { supabase } from "@/integrations/supabase/client";
 
 const ResumeUpload = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -27,8 +29,11 @@ const ResumeUpload = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [resumeName, setResumeName] = useState("");
   const [resumeType, setResumeType] = useState("general");
+  const [isUploading, setIsUploading] = useState(false);
+  const [isParsing, setIsParsing] = useState(false);
   const { toast } = useToast();
   const { addResume } = useResumes();
+  const { user } = useAuth();
 
   // Handle drag events
   const handleDrag = (e: React.DragEvent) => {
@@ -80,8 +85,44 @@ const ResumeUpload = () => {
     setResumeName(file.name.split('.')[0]);
   };
 
+  // Automatically parse the resume
+  const parseResume = async (resumeId: string, filePath: string, fileType: string) => {
+    if (!user) return;
+    
+    setIsParsing(true);
+    
+    try {
+      // Call the Supabase Edge Function to parse the resume
+      const { data, error } = await supabase.functions.invoke('parse-resume', {
+        body: {
+          resumeId: resumeId,
+          fileUrl: filePath,
+          fileType: fileType,
+          userId: user.id
+        }
+      });
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Resume processed successfully",
+        description: "Your resume has been analyzed and skills extracted",
+      });
+      
+      console.log("Parse resume result:", data);
+    } catch (err) {
+      console.error("Error parsing resume:", err);
+      toast({
+        title: "Resume processing in progress",
+        description: "Your resume is being analyzed in the background",
+      });
+    } finally {
+      setIsParsing(false);
+    }
+  };
+
   // Handle form submission
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!selectedFile) {
@@ -101,32 +142,60 @@ const ResumeUpload = () => {
       });
       return;
     }
-
-    // Create resume object
-    const newResume = {
-      id: Date.now().toString(),
-      name: resumeName,
-      type: resumeType,
-      fileName: selectedFile.name,
-      fileSize: selectedFile.size,
-      fileType: selectedFile.type,
-      dateUploaded: new Date().toISOString(),
-      file: URL.createObjectURL(selectedFile)
-    };
-
-    // Add resume to storage
-    addResume(newResume);
     
-    // Reset form and close dialog
-    setSelectedFile(null);
-    setResumeName("");
-    setResumeType("general");
-    setIsOpen(false);
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to upload resumes",
+        variant: "destructive"
+      });
+      return;
+    }
     
-    toast({
-      title: "Resume uploaded",
-      description: "Your resume has been successfully uploaded",
-    });
+    setIsUploading(true);
+    
+    try {
+      // Generate a unique ID for the resume
+      const resumeId = Date.now().toString();
+      
+      // Create resume object
+      const newResume = {
+        id: resumeId,
+        name: resumeName,
+        type: resumeType,
+        fileName: selectedFile.name,
+        fileSize: selectedFile.size,
+        fileType: selectedFile.type,
+        dateUploaded: new Date().toISOString(),
+        file: URL.createObjectURL(selectedFile)
+      };
+
+      // Add resume to storage
+      addResume(newResume);
+      
+      // Reset form and close dialog
+      setSelectedFile(null);
+      setResumeName("");
+      setResumeType("general");
+      setIsOpen(false);
+      
+      toast({
+        title: "Resume uploaded",
+        description: "Your resume is being processed...",
+      });
+      
+      // Auto-parse the resume
+      await parseResume(resumeId, newResume.file, newResume.fileType);
+    } catch (error) {
+      console.error("Error uploading resume:", error);
+      toast({
+        title: "Upload failed",
+        description: "There was an error uploading your resume",
+        variant: "destructive"
+      });
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   // Handle file removal
@@ -253,7 +322,16 @@ const ResumeUpload = () => {
             <Button type="button" variant="outline" onClick={() => setIsOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit">Upload Resume</Button>
+            <Button type="submit" disabled={isUploading || isParsing}>
+              {isUploading ? (
+                <>
+                  <span className="h-4 w-4 mr-2 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                  Uploading...
+                </>
+              ) : (
+                <>Upload Resume</>
+              )}
+            </Button>
           </div>
         </form>
       </DialogContent>

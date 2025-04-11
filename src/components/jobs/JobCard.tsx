@@ -15,14 +15,17 @@ import {
 import { Job } from "@/types/job";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
+import JobMatchScore from "./JobMatchScore";
 
 interface JobCardProps {
   job: Job;
   onStatusChange: (id: string, status: string) => void;
   onToggleFavorite: (id: string) => void;
+  matchScore?: number;
+  matchedSkills?: string[];
 }
 
-const JobCard = ({ job, onStatusChange, onToggleFavorite }: JobCardProps) => {
+const JobCard = ({ job, onStatusChange, onToggleFavorite, matchScore, matchedSkills }: JobCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
 
   const getStatusColor = (status: string) => {
@@ -118,6 +121,9 @@ const JobCard = ({ job, onStatusChange, onToggleFavorite }: JobCardProps) => {
             <span className="flex items-center text-muted-foreground">
               <span>${job.salary.toLocaleString()}</span>
             </span>
+          )}
+          {matchScore && matchScore >= 70 && (
+            <JobMatchScore score={matchScore} matchedSkills={matchedSkills} />
           )}
         </div>
         {isExpanded && (

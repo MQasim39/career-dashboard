@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { Plus, Search, Filter, SlidersHorizontal } from "lucide-react";
+import { Plus, Search, SlidersHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { 
@@ -21,15 +21,21 @@ import {
 import JobCard from "./JobCard";
 import { useJobs } from "@/hooks/use-jobs";
 import { useToast } from "@/hooks/use-toast";
+import { useResumes } from "@/hooks/use-resumes";
+import { useJobMatching } from "@/hooks/use-job-matching";
 
 const JobTracking = () => {
   const { toast } = useToast();
   const { jobs, updateJobStatus, toggleFavorite } = useJobs();
+  const { defaultResumeId } = useResumes();
+  const { jobMatches, isLoading: matchesLoading } = useJobMatching(defaultResumeId || undefined);
+  
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
-  const [sortBy, setSortBy] = useState("dateApplied");
+  const [sortBy, setSortBy] = useState("matchScore");
   const [sortOrder, setSortOrder] = useState("desc");
   const [showFavorites, setShowFavorites] = useState(false);
+  const [matchFilter, setMatchFilter] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,8 +51,18 @@ const JobTracking = () => {
     return () => clearTimeout(timer);
   }, [jobs]);
 
+  // Map match scores to jobs
+  const jobsWithMatches = jobs.map(job => {
+    const match = jobMatches.find(m => m.jobId === job.id);
+    return {
+      ...job,
+      matchScore: match?.matchScore || 0,
+      matchedSkills: match?.matchedSkills || []
+    };
+  });
+
   // Filter and sort jobs
-  const filteredJobs = jobs.filter(job => {
+  const filteredJobs = jobsWithMatches.filter(job => {
     // Search filter
     const searchMatch = 
       job.title.toLowerCase().includes(search.toLowerCase()) || 
@@ -59,14 +75,25 @@ const JobTracking = () => {
     // Favorites filter
     const favoriteMatch = showFavorites ? job.favorite : true;
     
-    return searchMatch && statusMatch && favoriteMatch;
+    // Match quality filter
+    let matchQualityMatch = true;
+    if (matchFilter) {
+      if (matchFilter === 'excellent') matchQualityMatch = job.matchScore >= 90;
+      else if (matchFilter === 'strong') matchQualityMatch = job.matchScore >= 80 && job.matchScore < 90;
+      else if (matchFilter === 'good') matchQualityMatch = job.matchScore >= 70 && job.matchScore < 80;
+      else if (matchFilter === 'all-matches') matchQualityMatch = job.matchScore >= 70;
+    }
+    
+    return searchMatch && statusMatch && favoriteMatch && matchQualityMatch;
   });
 
   // Sort jobs
   const sortedJobs = [...filteredJobs].sort((a, b) => {
     let comparison = 0;
     
-    if (sortBy === "dateApplied") {
+    if (sortBy === "matchScore") {
+      comparison = a.matchScore - b.matchScore;
+    } else if (sortBy === "dateApplied") {
       comparison = new Date(a.dateApplied).getTime() - new Date(b.dateApplied).getTime();
     } else if (sortBy === "company") {
       comparison = a.company.localeCompare(b.company);
@@ -91,7 +118,7 @@ const JobTracking = () => {
     toggleFavorite(id);
   };
 
-  if (isLoading) {
+  if (isLoading || matchesLoading) {
     return (
       <div className="flex justify-center items-center h-64">
         <div className="animate-pulse space-y-4 w-full">
@@ -142,6 +169,19 @@ const JobTracking = () => {
             </SelectContent>
           </Select>
           
+          <Select value={matchFilter || "all"} onValueChange={(value) => setMatchFilter(value === "all" ? null : value)}>
+            <SelectTrigger className="w-full sm:w-[180px]">
+              <SelectValue placeholder="Match Quality" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Jobs</SelectItem>
+              <SelectItem value="all-matches">All Matches (70%+)</SelectItem>
+              <SelectItem value="excellent">Excellent Matches (90%+)</SelectItem>
+              <SelectItem value="strong">Strong Matches (80-89%)</SelectItem>
+              <SelectItem value="good">Good Matches (70-79%)</SelectItem>
+            </SelectContent>
+          </Select>
+          
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" className="gap-2">
@@ -152,6 +192,12 @@ const JobTracking = () => {
             <DropdownMenuContent className="w-56">
               <DropdownMenuLabel>Sort By</DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuCheckboxItem
+                checked={sortBy === "matchScore"}
+                onCheckedChange={() => setSortBy("matchScore")}
+              >
+                Match Score
+              </DropdownMenuCheckboxItem>
               <DropdownMenuCheckboxItem
                 checked={sortBy === "dateApplied"}
                 onCheckedChange={() => setSortBy("dateApplied")}
@@ -214,6 +260,8 @@ const JobTracking = () => {
               job={job} 
               onStatusChange={handleStatusChange}
               onToggleFavorite={handleToggleFavorite}
+              matchScore={job.matchScore}
+              matchedSkills={job.matchedSkills}
             />
           ))
         ) : (
