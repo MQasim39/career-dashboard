@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Bot, Bell, Mail, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -44,7 +43,6 @@ const Agent = () => {
   const { toast } = useToast();
   const { user } = useAuth();
 
-  // Effect to trigger job scraping when agent is enabled
   useEffect(() => {
     const triggerJobScraping = async () => {
       if (!agentEnabled || !user || !defaultResumeId) return;
@@ -52,7 +50,6 @@ const Agent = () => {
       setIsProcessing(true);
       
       try {
-        // Create a scraper configuration based on agent settings
         const configData = {
           name: `Auto Agent Job Search - ${new Date().toISOString().split('T')[0]}`,
           user_id: user.id,
@@ -69,7 +66,6 @@ const Agent = () => {
           frequency: "daily"
         };
         
-        // Store the configuration in the database
         const { data: configResult, error: configError } = await supabase
           .from('scraper_configurations')
           .insert(configData)
@@ -78,7 +74,6 @@ const Agent = () => {
           
         if (configError) throw configError;
         
-        // Queue the scraping job
         const { data: queueResult, error: queueError } = await supabase
           .from('scraper_queue')
           .insert({
@@ -90,15 +85,20 @@ const Agent = () => {
           
         if (queueError) throw queueError;
         
-        // Trigger the scraper function
-        const { error: functionError } = await supabase.functions.invoke('scrape-jobs', {
-          body: { 
-            configuration_id: configResult.id,
-            queue_item_id: queueResult[0].id
-          }
-        });
+        const queueItemId = queueResult && queueResult.length > 0 ? queueResult[0].id : null;
         
-        if (functionError) throw functionError;
+        if (queueItemId) {
+          const { error: functionError } = await supabase.functions.invoke('scrape-jobs', {
+            body: { 
+              configuration_id: configResult.id,
+              queue_item_id: queueItemId
+            }
+          });
+          
+          if (functionError) throw functionError;
+        } else {
+          throw new Error("Failed to create queue item");
+        }
         
         toast({
           title: "Agent activated",
@@ -111,7 +111,6 @@ const Agent = () => {
           description: "There was an error activating your job agent.",
           variant: "destructive",
         });
-        // Revert the toggle if there was an error
         setAgentEnabled(false);
       } finally {
         setIsProcessing(false);
@@ -134,7 +133,6 @@ const Agent = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 space-y-6">
-          {/* Agent Status Card */}
           <Card className="shadow-sm">
             <CardHeader className="pb-3">
               <div className="flex justify-between items-center">
@@ -176,7 +174,6 @@ const Agent = () => {
             </CardContent>
           </Card>
 
-          {/* Filtering Options */}
           <Card className="shadow-sm">
             <CardHeader>
               <CardTitle className="text-xl font-heading">Search Criteria</CardTitle>
@@ -293,7 +290,6 @@ const Agent = () => {
         </div>
 
         <div className="space-y-6">
-          {/* Resume Selection */}
           <Card className="shadow-sm">
             <CardHeader>
               <CardTitle className="text-xl font-heading">Active Resume</CardTitle>
@@ -338,7 +334,6 @@ const Agent = () => {
             </CardContent>
           </Card>
 
-          {/* Notification Settings */}
           <Card className="shadow-sm">
             <CardHeader>
               <CardTitle className="text-xl font-heading">Notifications</CardTitle>
