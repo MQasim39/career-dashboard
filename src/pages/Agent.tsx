@@ -59,9 +59,59 @@ const Agent = () => {
   const [browserAlerts, setBrowserAlerts] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [configId, setConfigId] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
   const { jobMatches, isLoading: isLoadingMatches } = useJobMatching(defaultResumeId || undefined);
+
+  // Load saved agent status from localStorage on initial render
+  useEffect(() => {
+    if (user) {
+      const savedState = localStorage.getItem(`agent_enabled_${user.id}`);
+      const savedConfig = localStorage.getItem(`agent_config_${user.id}`);
+      const savedLocation = localStorage.getItem(`agent_location_${user.id}`);
+      const savedJobType = localStorage.getItem(`agent_jobType_${user.id}`);
+      const savedDepartment = localStorage.getItem(`agent_department_${user.id}`);
+      const savedSalaryRange = localStorage.getItem(`agent_salaryRange_${user.id}`);
+      const savedEmailAlerts = localStorage.getItem(`agent_emailAlerts_${user.id}`);
+      const savedBrowserAlerts = localStorage.getItem(`agent_browserAlerts_${user.id}`);
+      
+      if (savedState === 'true') setAgentEnabled(true);
+      if (savedConfig) setConfigId(savedConfig);
+      if (savedLocation) setLocation(savedLocation);
+      if (savedJobType) setJobType(savedJobType);
+      if (savedDepartment) setDepartment(savedDepartment);
+      if (savedSalaryRange) setSalaryRange(JSON.parse(savedSalaryRange));
+      if (savedEmailAlerts) setEmailAlerts(savedEmailAlerts === 'true');
+      if (savedBrowserAlerts) setBrowserAlerts(savedBrowserAlerts === 'true');
+    }
+  }, [user]);
+
+  // Save agent status to localStorage whenever it changes
+  useEffect(() => {
+    if (user) {
+      localStorage.setItem(`agent_enabled_${user.id}`, agentEnabled.toString());
+      localStorage.setItem(`agent_location_${user.id}`, location);
+      localStorage.setItem(`agent_jobType_${user.id}`, jobType);
+      localStorage.setItem(`agent_department_${user.id}`, department);
+      localStorage.setItem(`agent_salaryRange_${user.id}`, JSON.stringify(salaryRange));
+      localStorage.setItem(`agent_emailAlerts_${user.id}`, emailAlerts.toString());
+      localStorage.setItem(`agent_browserAlerts_${user.id}`, browserAlerts.toString());
+      if (configId) {
+        localStorage.setItem(`agent_config_${user.id}`, configId);
+      }
+    }
+  }, [
+    user, 
+    agentEnabled, 
+    configId, 
+    location, 
+    jobType, 
+    department, 
+    salaryRange, 
+    emailAlerts, 
+    browserAlerts
+  ]);
 
   useEffect(() => {
     const triggerJobScraping = async () => {
@@ -101,6 +151,11 @@ const Agent = () => {
           
         if (configError) throw configError;
         
+        // Save the config ID for future reference
+        if (configResult) {
+          setConfigId(configResult.id);
+        }
+        
         // Properly type the queue result
         const { data: queueResult, error: queueError } = await supabase
           .from('scraper_queue')
@@ -110,7 +165,7 @@ const Agent = () => {
             scheduled_for: new Date().toISOString(),
             priority: 10
           })
-          .select<'*', QueueItem>();
+          .select<'*', QueueItem>(); // Properly type the response
           
         if (queueError) throw queueError;
         
@@ -140,7 +195,7 @@ const Agent = () => {
         setLastError(error.message || "Unknown error");
         toast({
           title: "Agent activation failed",
-          description: "There was an error activating your job agent.",
+          description: error.message || "There was an error activating your job agent.",
           variant: "destructive",
         });
         setAgentEnabled(false);

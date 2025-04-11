@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Briefcase, Clock, MapPin, Calendar, Check, X, MoreHorizontal, Star, Building } from "lucide-react";
+import { Briefcase, Clock, MapPin, Calendar, Check, X, MoreHorizontal, Star, Building, ExternalLink, Edit, Copy, Trash2 } from "lucide-react";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -16,6 +16,7 @@ import { Job } from "@/types/job";
 import { formatDistanceToNow } from "date-fns";
 import { cn } from "@/lib/utils";
 import JobMatchScore from "./JobMatchScore";
+import { useToast } from "@/hooks/use-toast";
 
 interface JobCardProps {
   job: Job;
@@ -27,6 +28,7 @@ interface JobCardProps {
 
 const JobCard = ({ job, onStatusChange, onToggleFavorite, matchScore, matchedSkills }: JobCardProps) => {
   const [isExpanded, setIsExpanded] = useState(false);
+  const { toast } = useToast();
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -56,6 +58,38 @@ const JobCard = ({ job, onStatusChange, onToggleFavorite, matchScore, matchedSki
       default:
         return "bg-gray-500/20 text-gray-500 hover:bg-gray-500/20";
     }
+  };
+
+  const handleCopyLink = () => {
+    // In a real implementation, this would copy an actual job application URL
+    navigator.clipboard.writeText(`https://example.com/job/${job.id}`);
+    toast({
+      title: "Link copied",
+      description: "Job application link has been copied to clipboard",
+    });
+  };
+
+  const handleEditJob = () => {
+    toast({
+      title: "Edit job",
+      description: "Job editing functionality will be implemented soon",
+    });
+  };
+
+  const handleViewDetails = () => {
+    toast({
+      title: "View details",
+      description: "Detailed job view will be implemented soon",
+    });
+    setIsExpanded(true);
+  };
+
+  const handleDeleteJob = () => {
+    toast({
+      title: "Delete job",
+      description: "Job deletion functionality will be implemented soon",
+      variant: "destructive",
+    });
   };
 
   return (
@@ -89,11 +123,23 @@ const JobCard = ({ job, onStatusChange, onToggleFavorite, matchScore, matchedSki
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem>Edit</DropdownMenuItem>
-                <DropdownMenuItem>View Details</DropdownMenuItem>
-                <DropdownMenuItem>Copy Link</DropdownMenuItem>
+                <DropdownMenuItem onClick={handleEditJob}>
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleViewDetails}>
+                  <ExternalLink className="h-4 w-4 mr-2" />
+                  View Details
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={handleCopyLink}>
+                  <Copy className="h-4 w-4 mr-2" />
+                  Copy Link
+                </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="text-destructive focus:text-destructive">Delete</DropdownMenuItem>
+                <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={handleDeleteJob}>
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

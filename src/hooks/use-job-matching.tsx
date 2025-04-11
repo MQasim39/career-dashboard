@@ -24,6 +24,15 @@ export const useJobMatching = (resumeId?: string) => {
     setIsLoading(true);
     
     try {
+      // Check if resumeId is a valid UUID format
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      
+      if (!uuidRegex.test(resumeId)) {
+        console.log(`Resume ID ${resumeId} is not in UUID format, skipping match fetch`);
+        setJobMatches([]);
+        return;
+      }
+      
       // Fetch all job matches for the user and resume
       const { data, error } = await supabase
         .from('job_matches')
@@ -45,13 +54,16 @@ export const useJobMatching = (resumeId?: string) => {
       }));
       
       setJobMatches(transformedMatches);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error fetching job matches:", error);
-      toast({
-        title: "Error fetching matches",
-        description: "Unable to load job matches. Please try again later.",
-        variant: "destructive",
-      });
+      // Don't show toast for invalid UUID format errors
+      if (error.message && !error.message.includes("invalid input syntax for type uuid")) {
+        toast({
+          title: "Error fetching matches",
+          description: "Unable to load job matches. Please try again later.",
+          variant: "destructive",
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -69,6 +81,9 @@ export const useJobMatching = (resumeId?: string) => {
   useEffect(() => {
     if (resumeId) {
       fetchJobMatches();
+    } else {
+      setJobMatches([]);
+      setIsLoading(false);
     }
   }, [resumeId, user]);
   
