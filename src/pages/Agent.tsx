@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { Bot, Bell, Mail, FileText } from "lucide-react";
+import { Bot, Bell, Mail, FileText, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
@@ -20,16 +20,24 @@ import {
 } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
+} from "@/components/ui/tooltip";
 import { 
   Accordion,
   AccordionContent,
   AccordionItem,
   AccordionTrigger
 } from "@/components/ui/accordion";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useResumes } from "@/hooks/use-resumes";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+import { useJobMatching } from "@/hooks/use-job-matching";
 
 // Define the queue item interface to match the database schema
 interface QueueItem {
@@ -50,20 +58,24 @@ const Agent = () => {
   const [emailAlerts, setEmailAlerts] = useState(true);
   const [browserAlerts, setBrowserAlerts] = useState(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [lastError, setLastError] = useState<string | null>(null);
   const { toast } = useToast();
   const { user } = useAuth();
+  const { jobMatches, isLoading: isLoadingMatches } = useJobMatching(defaultResumeId || undefined);
 
   useEffect(() => {
     const triggerJobScraping = async () => {
       if (!agentEnabled || !user || !defaultResumeId) return;
       
       setIsProcessing(true);
+      setLastError(null);
       
       try {
+        // Create config data but don't include resume_id as a direct column
+        // Instead, store it in a metadata field which should be part of the filters JSON column
         const configData = {
           name: `Auto Agent Job Search - ${new Date().toISOString().split('T')[0]}`,
           user_id: user.id,
-          resume_id: defaultResumeId,
           keywords: department ? [department] : [],
           locations: location ? [location] : [],
           job_types: [jobType],
@@ -71,6 +83,11 @@ const Agent = () => {
             min: salaryRange[0],
             max: salaryRange[1], 
             currency: "USD"
+          },
+          filters: {
+            resume_id: defaultResumeId,
+            email_alerts: emailAlerts,
+            browser_alerts: browserAlerts
           },
           is_active: true,
           frequency: "daily"
@@ -104,7 +121,8 @@ const Agent = () => {
           const { error: functionError } = await supabase.functions.invoke('scrape-jobs', {
             body: { 
               configuration_id: configResult.id,
-              queue_item_id: queueItemId
+              queue_item_id: queueItemId,
+              resume_id: defaultResumeId // Pass resume_id as a separate parameter to the function
             }
           });
           
@@ -117,8 +135,9 @@ const Agent = () => {
           title: "Agent activated",
           description: "Your job agent is now searching for matching positions.",
         });
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error activating agent:", error);
+        setLastError(error.message || "Unknown error");
         toast({
           title: "Agent activation failed",
           description: "There was an error activating your job agent.",
@@ -133,7 +152,7 @@ const Agent = () => {
     if (agentEnabled) {
       triggerJobScraping();
     }
-  }, [agentEnabled, user, defaultResumeId, location, jobType, department, salaryRange, toast]);
+  }, [agentEnabled, user, defaultResumeId, location, jobType, department, salaryRange, toast, emailAlerts, browserAlerts]);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -178,6 +197,16 @@ const Agent = () => {
                   </div>
                 )}
               </div>
+              
+              {lastError && (
+                <Alert variant="destructive" className="mt-3">
+                  <AlertDescription className="flex items-center gap-2">
+                    <Info className="h-4 w-4" />
+                    <span className="text-sm">Error details: {lastError}</span>
+                  </AlertDescription>
+                </Alert>
+              )}
+              
               {!defaultResumeId && (
                 <div className="mt-3 text-sm text-amber-500 flex items-center gap-2">
                   <FileText className="h-4 w-4" />
@@ -384,17 +413,28 @@ const Agent = () => {
               </div>
               
               <div className="pt-2">
-                <Select defaultValue="important">
-                  <SelectTrigger>
-                    <SelectValue placeholder="Notification frequency" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="realtime">Real-time</SelectItem>
-                    <SelectItem value="daily">Daily digest</SelectItem>
-                    <SelectItem value="important">Important matches only</SelectItem>
-                    <SelectItem value="weekly">Weekly summary</SelectItem>
-                  </SelectContent>
-                </Select>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="w-full">
+                        <Select defaultValue="important">
+                          <SelectTrigger>
+                            <SelectValue placeholder="Notification frequency" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="realtime">Real-time</SelectItem>
+                            <SelectItem value="daily">Daily digest</SelectItem>
+                            <SelectItem value="important">Important matches only</SelectItem>
+                            <SelectItem value="weekly">Weekly summary</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p className="text-xs">Control how often you receive notifications</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
             </CardContent>
           </Card>
