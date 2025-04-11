@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Bot, Bell, Mail, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -29,6 +30,15 @@ import { useResumes } from "@/hooks/use-resumes";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
+
+// Define the queue item interface to match the database schema
+interface QueueItem {
+  id: string;
+  configuration_id: string;
+  status: string;
+  scheduled_for: string;
+  priority: number;
+}
 
 const Agent = () => {
   const { resumes, defaultResumeId, setDefaultResume } = useResumes();
@@ -74,6 +84,7 @@ const Agent = () => {
           
         if (configError) throw configError;
         
+        // Properly type the queue result
         const { data: queueResult, error: queueError } = await supabase
           .from('scraper_queue')
           .insert({
@@ -81,10 +92,12 @@ const Agent = () => {
             status: 'pending',
             scheduled_for: new Date().toISOString(),
             priority: 10
-          });
+          })
+          .select<'*', QueueItem>();
           
         if (queueError) throw queueError;
         
+        // Safely check if we have a valid queue item
         const queueItemId = queueResult && queueResult.length > 0 ? queueResult[0].id : null;
         
         if (queueItemId) {
