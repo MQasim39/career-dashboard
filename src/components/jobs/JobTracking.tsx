@@ -28,7 +28,7 @@ const JobTracking = () => {
   const { toast } = useToast();
   const { jobs, updateJobStatus, toggleFavorite } = useJobs();
   const { defaultResumeId } = useResumes();
-  const { jobMatches, isLoading: matchesLoading } = useJobMatching(defaultResumeId || undefined);
+  const { jobMatches, isLoading: matchesLoading, refreshMatches } = useJobMatching(defaultResumeId || undefined);
   
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string | null>(null);
@@ -50,6 +50,13 @@ const JobTracking = () => {
     }, 800);
     return () => clearTimeout(timer);
   }, [jobs]);
+
+  // Refresh matches when defaultResumeId changes
+  useEffect(() => {
+    if (defaultResumeId) {
+      refreshMatches();
+    }
+  }, [defaultResumeId, refreshMatches]);
 
   // Map match scores to jobs
   const jobsWithMatches = jobs.map(job => {
@@ -94,7 +101,7 @@ const JobTracking = () => {
     if (sortBy === "matchScore") {
       comparison = a.matchScore - b.matchScore;
     } else if (sortBy === "dateApplied") {
-      comparison = new Date(a.dateApplied).getTime() - new Date(b.dateApplied).getTime();
+      comparison = new Date(a.dateApplied || 0).getTime() - new Date(b.dateApplied || 0).getTime();
     } else if (sortBy === "company") {
       comparison = a.company.localeCompare(b.company);
     } else if (sortBy === "title") {
@@ -270,13 +277,18 @@ const JobTracking = () => {
             <p className="text-sm text-muted-foreground mt-1">
               {jobs.length > 0 
                 ? "Try adjusting your filters or search terms" 
-                : "Start by adding your first job application"}
+                : "Start by adding your first job application or activate the Job Agent"}
             </p>
             {jobs.length === 0 && (
-              <Button className="mt-4 gap-2">
-                <Plus className="h-4 w-4" />
-                <span>Add Job</span>
-              </Button>
+              <div className="mt-4 flex gap-3 justify-center">
+                <Button className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  <span>Add Job</span>
+                </Button>
+                <Button variant="outline" asChild>
+                  <a href="/agent">Setup Job Agent</a>
+                </Button>
+              </div>
             )}
           </div>
         )}

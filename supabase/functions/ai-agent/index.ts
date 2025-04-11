@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 
@@ -17,8 +18,12 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
     const claudeApiKey = Deno.env.get("CLAUDE_API_KEY") || "";
     
-    if (!supabaseUrl || !supabaseServiceKey || !claudeApiKey) {
-      throw new Error("Missing environment variables");
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error("Missing environment variables SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
+    }
+    
+    if (!claudeApiKey) {
+      throw new Error("Missing CLAUDE_API_KEY. Please add this to your Supabase secrets.");
     }
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -36,8 +41,18 @@ serve(async (req) => {
       browser_alerts
     } = requestData;
     
-    if (!user_id || !resume_id) {
-      throw new Error("Missing required parameters: user_id or resume_id");
+    if (!user_id) {
+      throw new Error("Missing required parameter: user_id");
+    }
+    
+    if (!resume_id) {
+      throw new Error("Missing required parameter: resume_id");
+    }
+    
+    // Validate resume_id is a valid UUID
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(resume_id)) {
+      throw new Error("Invalid resume_id format. Must be a UUID.");
     }
     
     // Step 1: Get the resume data
@@ -49,10 +64,16 @@ serve(async (req) => {
       .single();
     
     if (resumeError) {
+      console.error("Error fetching resume:", resumeError);
       throw new Error(`Error fetching resume: ${resumeError.message}`);
     }
     
+    if (!resumeData) {
+      throw new Error("No parsed resume found for the provided resume_id. Please upload and parse a resume first.");
+    }
+    
     // Step 2: Use Claude to analyze the resume and extract key information
+    console.log("Analyzing resume with Claude...");
     const resumeAnalysis = await analyzeResumeWithClaude(claudeApiKey, resumeData);
     
     // Step 3: Create a scraper configuration based on resume analysis
@@ -64,21 +85,23 @@ serve(async (req) => {
         ...(department ? [department] : [])
       ],
       locations: location ? [location] : [],
-      job_types: [job_type],
+      job_types: job_type ? [job_type] : ["full-time"],
       salary_range: {
-        min: salary_range[0],
-        max: salary_range[1], 
+        min: salary_range?.[0] || 0,
+        max: salary_range?.[1] || 200000, 
         currency: "USD"
       },
       filters: {
         resume_id: resume_id,
-        email_alerts: email_alerts,
-        browser_alerts: browser_alerts,
+        email_alerts: email_alerts || false,
+        browser_alerts: browser_alerts || false,
         ai_enhanced: true
       },
       is_active: true,
       frequency: "daily"
     };
+    
+    console.log("Creating scraper configuration...");
     
     // Step 4: Create the scraper configuration
     const { data: configResult, error: configError } = await supabase
@@ -87,9 +110,13 @@ serve(async (req) => {
       .select()
       .single();
       
-    if (configError) throw configError;
+    if (configError) {
+      console.error("Error creating scraper configuration:", configError);
+      throw configError;
+    }
     
     // Step 5: Add to the scraper queue
+    console.log("Adding job to scraper queue...");
     const { data: queueResult, error: queueError } = await supabase
       .from('scraper_queue')
       .insert({
@@ -100,12 +127,16 @@ serve(async (req) => {
       })
       .select();
       
-    if (queueError) throw queueError;
+    if (queueError) {
+      console.error("Error adding to scraper queue:", queueError);
+      throw queueError;
+    }
     
     // Step 6: Run the scraper
     const queueItemId = queueResult && queueResult.length > 0 ? queueResult[0].id : null;
     
     if (queueItemId) {
+      console.log(`Starting scrape-jobs function with queue item ID: ${queueItemId}`);
       const { error: functionError } = await supabase.functions.invoke('scrape-jobs', {
         body: { 
           configuration_id: configResult.id,
@@ -115,7 +146,10 @@ serve(async (req) => {
         }
       });
       
-      if (functionError) throw functionError;
+      if (functionError) {
+        console.error("Error invoking scrape-jobs function:", functionError);
+        throw functionError;
+      }
     } else {
       throw new Error("Failed to create queue item");
     }
@@ -134,7 +168,10 @@ serve(async (req) => {
         .eq('id', queueItemId)
         .single();
       
-      if (statusError) throw statusError;
+      if (statusError) {
+        console.error("Error checking queue status:", statusError);
+        throw statusError;
+      }
       
       if (queueStatus.status === 'completed' || queueStatus.status === 'failed') {
         scrapingComplete = true;
@@ -144,7 +181,10 @@ serve(async (req) => {
     }
     
     // Step 8: Use Claude to enhance job matching
-    await enhanceJobMatchingWithClaude(claudeApiKey, supabase, user_id, resume_id, resumeAnalysis);
+    if (scrapingComplete) {
+      console.log("Scraping complete. Enhancing job matching with Claude...");
+      await enhanceJobMatchingWithClaude(claudeApiKey, supabase, user_id, resume_id, resumeAnalysis);
+    }
     
     return new Response(
       JSON.stringify({ 
@@ -185,6 +225,8 @@ async function analyzeResumeWithClaude(apiKey, resumeData) {
   const education = resumeData.education || [];
   const fullText = resumeData.full_text || "";
   
+  console.log(`Analyzing resume with ${skills.length} skills, ${experience.length} experience items, and ${education.length} education items`);
+  
   // Prepare the prompt for Claude
   const prompt = `
     Analyze this resume information and extract key insights:
@@ -206,6 +248,7 @@ async function analyzeResumeWithClaude(apiKey, resumeData) {
   `;
   
   try {
+    console.log("Sending request to Claude API...");
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
@@ -227,6 +270,7 @@ async function analyzeResumeWithClaude(apiKey, resumeData) {
     });
     
     if (!response.ok) {
+      console.error(`Claude API error: ${response.status}`);
       throw new Error(`Claude API error: ${response.status}`);
     }
     
@@ -236,15 +280,30 @@ async function analyzeResumeWithClaude(apiKey, resumeData) {
     // Extract JSON from the response
     const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
     const jsonStr = jsonMatch ? jsonMatch[0] : '{}';
-    const analysis = JSON.parse(jsonStr);
     
-    return {
-      suggestedKeywords: analysis.keywords || [],
-      experienceLevel: analysis.experience_level || "mid",
-      suggestedRoles: analysis.job_roles || [],
-      technicalSkillsRating: analysis.technical_skills_rating || 5,
-      softSkillsAssessment: analysis.soft_skills_assessment || ""
-    };
+    try {
+      const analysis = JSON.parse(jsonStr);
+      console.log("Resume analysis complete:", analysis);
+      
+      return {
+        suggestedKeywords: analysis.keywords || [],
+        experienceLevel: analysis.experience_level || "mid",
+        suggestedRoles: analysis.job_roles || [],
+        technicalSkillsRating: analysis.technical_skills_rating || 5,
+        softSkillsAssessment: analysis.soft_skills_assessment || ""
+      };
+    } catch (parseError) {
+      console.error("Error parsing Claude response as JSON:", parseError);
+      console.log("Raw response:", analysisText);
+      // Return default values if JSON parsing fails
+      return {
+        suggestedKeywords: skills.slice(0, 10),
+        experienceLevel: "mid",
+        suggestedRoles: [],
+        technicalSkillsRating: 5,
+        softSkillsAssessment: ""
+      };
+    }
   } catch (error) {
     console.error("Error analyzing resume with Claude:", error);
     // Return default values if Claude analysis fails
@@ -260,60 +319,89 @@ async function analyzeResumeWithClaude(apiKey, resumeData) {
 
 // Function to enhance job matching with Claude
 async function enhanceJobMatchingWithClaude(apiKey, supabase, userId, resumeId, resumeAnalysis) {
-  // Get all job matches for this resume
-  const { data: matches, error: matchesError } = await supabase
-    .from('job_matches')
-    .select('id, job_id, match_score')
-    .eq('user_id', userId)
-    .eq('resume_id', resumeId)
-    .gte('match_score', 50);
-  
-  if (matchesError) throw matchesError;
-  
-  // Process each match in batches to avoid rate limits
-  const batchSize = 5;
-  for (let i = 0; i < matches.length; i += batchSize) {
-    const batch = matches.slice(i, i + batchSize);
+  try {
+    // Get all job matches for this resume
+    const { data: matches, error: matchesError } = await supabase
+      .from('job_matches')
+      .select('id, job_id, match_score')
+      .eq('user_id', userId)
+      .eq('resume_id', resumeId)
+      .gte('match_score', 50);
     
-    await Promise.all(batch.map(async (match) => {
-      // Get job details
-      const { data: job, error: jobError } = await supabase
-        .from('scraped_jobs')
-        .select('*')
-        .eq('id', match.job_id)
-        .single();
-      
-      if (jobError) return; // Skip this job if there's an error
-      
-      // Use Claude to get a more nuanced match score
-      const enhancedScore = await getEnhancedMatchScore(
-        apiKey, 
-        job, 
-        resumeAnalysis
-      );
-      
-      // Update the match score if it's different and within 70-100% range
-      if (enhancedScore >= 70 && enhancedScore !== match.match_score) {
-        await supabase
-          .from('job_matches')
-          .update({ 
-            match_score: enhancedScore,
-            ai_enhanced: true
-          })
-          .eq('id', match.id);
-      } else if (enhancedScore < 70) {
-        // Remove matches below 70%
-        await supabase
-          .from('job_matches')
-          .delete()
-          .eq('id', match.id);
-      }
-    }));
-    
-    // Add a small delay between batches to avoid rate limits
-    if (i + batchSize < matches.length) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+    if (matchesError) {
+      console.error("Error fetching job matches:", matchesError);
+      throw matchesError;
     }
+    
+    if (!matches || matches.length === 0) {
+      console.log("No job matches found to enhance");
+      return;
+    }
+    
+    console.log(`Enhancing ${matches.length} job matches with Claude...`);
+    
+    // Process each match in batches to avoid rate limits
+    const batchSize = 5;
+    for (let i = 0; i < matches.length; i += batchSize) {
+      const batch = matches.slice(i, i + batchSize);
+      
+      await Promise.all(batch.map(async (match) => {
+        // Get job details
+        const { data: job, error: jobError } = await supabase
+          .from('scraped_jobs')
+          .select('*')
+          .eq('id', match.job_id)
+          .single();
+        
+        if (jobError) {
+          console.error(`Error fetching job ${match.job_id}:`, jobError);
+          return; // Skip this job if there's an error
+        }
+        
+        if (!job) {
+          console.log(`Job ${match.job_id} not found`);
+          return; // Skip if job not found
+        }
+        
+        // Use Claude to get a more nuanced match score
+        const enhancedScore = await getEnhancedMatchScore(
+          apiKey, 
+          job, 
+          resumeAnalysis
+        );
+        
+        // Update the match score if it's different and within 70-100% range
+        if (enhancedScore >= 70 && enhancedScore !== match.match_score) {
+          await supabase
+            .from('job_matches')
+            .update({ 
+              match_score: enhancedScore,
+              ai_enhanced: true
+            })
+            .eq('id', match.id);
+            
+          console.log(`Updated match score for job ${job.title} from ${match.match_score} to ${enhancedScore}`);
+        } else if (enhancedScore < 70) {
+          // Remove matches below 70%
+          await supabase
+            .from('job_matches')
+            .delete()
+            .eq('id', match.id);
+            
+          console.log(`Removed job match ${match.id} with low score ${enhancedScore}`);
+        }
+      }));
+      
+      // Add a small delay between batches to avoid rate limits
+      if (i + batchSize < matches.length) {
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+    }
+    
+    console.log("Job matching enhancement complete");
+  } catch (error) {
+    console.error("Error enhancing job matches:", error);
+    // Don't throw error here - just log it to prevent function failure
   }
 }
 

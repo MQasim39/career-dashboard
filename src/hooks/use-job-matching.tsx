@@ -30,8 +30,11 @@ export const useJobMatching = (resumeId?: string) => {
       if (!uuidRegex.test(resumeId)) {
         console.log(`Resume ID ${resumeId} is not in UUID format, skipping match fetch`);
         setJobMatches([]);
+        setIsLoading(false);
         return;
       }
+      
+      console.log(`Fetching job matches for resume ${resumeId}`);
       
       // Fetch all job matches for the user and resume
       const { data, error } = await supabase
@@ -42,7 +45,18 @@ export const useJobMatching = (resumeId?: string) => {
         .gte('match_score', 70) // Only fetch matches with 70% or higher score
         .order('match_score', { ascending: false });
         
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching job matches:", error);
+        throw error;
+      }
+      
+      if (!data || data.length === 0) {
+        console.log("No job matches found for this resume");
+        setJobMatches([]);
+        return;
+      }
+      
+      console.log(`Found ${data.length} job matches`);
       
       // Transform the data
       const transformedMatches: JobMatch[] = data.map(match => ({

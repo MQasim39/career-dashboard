@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 
@@ -50,6 +51,14 @@ serve(async (req) => {
       throw new Error("Missing required parameters: resume_id or user_id");
     }
     
+    // Validate resume_id is a valid UUID
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!uuidRegex.test(resume_id)) {
+      throw new Error("Invalid resume_id format. Must be a UUID.");
+    }
+    
+    console.log(`Generating job matches for user ${user_id} and resume ${resume_id}`);
+    
     // Get the parsed resume
     const { data: resumeData, error: resumeError } = await supabase
       .from("parsed_resumes")
@@ -59,6 +68,7 @@ serve(async (req) => {
       .single();
     
     if (resumeError) {
+      console.error("Error fetching parsed resume:", resumeError);
       throw new Error(`Error fetching parsed resume: ${resumeError.message}`);
     }
     
@@ -74,6 +84,7 @@ serve(async (req) => {
       .select("id, title, company, description, requirements, skills_required");
     
     if (jobsError) {
+      console.error("Error fetching scraped jobs:", jobsError);
       throw new Error(`Error fetching scraped jobs: ${jobsError.message}`);
     }
     
@@ -109,7 +120,7 @@ serve(async (req) => {
       
       const matchScore = Math.round((matchedSkills.length / totalUniqueSkills) * 100);
       
-      // Only save matches with a score of 50 or higher
+      // Only save matches with a score of 50 or higher (will be filtered further later)
       if (matchScore >= 50) {
         jobMatches.push({
           job_id: job.id,
@@ -139,6 +150,7 @@ serve(async (req) => {
         .select("id");
       
       if (insertError) {
+        console.error("Error inserting job matches:", insertError);
         throw new Error(`Error inserting job matches: ${insertError.message}`);
       }
       

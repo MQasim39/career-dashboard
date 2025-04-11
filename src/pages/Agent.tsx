@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Bot, Bell, Mail, FileText, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -39,7 +38,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useJobMatching } from "@/hooks/use-job-matching";
 
-// Define the queue item interface to match the database schema
 interface QueueItem {
   id: string;
   configuration_id: string;
@@ -64,7 +62,6 @@ const Agent = () => {
   const { user } = useAuth();
   const { jobMatches, isLoading: isLoadingMatches } = useJobMatching(defaultResumeId || undefined);
 
-  // Load saved agent status from localStorage on initial render
   useEffect(() => {
     if (user) {
       const savedState = localStorage.getItem(`agent_enabled_${user.id}`);
@@ -81,13 +78,18 @@ const Agent = () => {
       if (savedLocation) setLocation(savedLocation);
       if (savedJobType) setJobType(savedJobType);
       if (savedDepartment) setDepartment(savedDepartment);
-      if (savedSalaryRange) setSalaryRange(JSON.parse(savedSalaryRange));
+      if (savedSalaryRange) {
+        try {
+          setSalaryRange(JSON.parse(savedSalaryRange));
+        } catch (e) {
+          console.error("Error parsing saved salary range:", e);
+        }
+      }
       if (savedEmailAlerts) setEmailAlerts(savedEmailAlerts === 'true');
       if (savedBrowserAlerts) setBrowserAlerts(savedBrowserAlerts === 'true');
     }
   }, [user]);
 
-  // Save agent status to localStorage whenever it changes
   useEffect(() => {
     if (user) {
       localStorage.setItem(`agent_enabled_${user.id}`, agentEnabled.toString());
@@ -121,7 +123,13 @@ const Agent = () => {
       setLastError(null);
 
       try {
-        // Call the AI agent function
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (!uuidRegex.test(defaultResumeId)) {
+          throw new Error("Invalid resume ID format. Please select a valid resume.");
+        }
+        
+        console.log("Activating AI Agent with resume:", defaultResumeId);
+        
         const { data, error: functionError } = await supabase.functions.invoke('ai-agent', {
           body: {
             user_id: user.id,
@@ -135,9 +143,11 @@ const Agent = () => {
           }
         });
 
-        if (functionError) throw functionError;
+        if (functionError) {
+          console.error("AI Agent activation error:", functionError);
+          throw new Error(`AI Agent activation failed: ${functionError.message || "Unknown error"}`);
+        }
 
-        // Save the config ID for future reference if returned
         if (data && data.config_id) {
           setConfigId(data.config_id);
         }
@@ -154,16 +164,37 @@ const Agent = () => {
           description: error.message || "There was an error activating your AI job agent.",
           variant: "destructive",
         });
-        setAgentEnabled(false);
       } finally {
         setIsProcessing(false);
       }
     };
 
-    if (agentEnabled) {
+    if (agentEnabled && !isProcessing) {
       activateAIAgent();
     }
   }, [agentEnabled, user, defaultResumeId, location, jobType, department, salaryRange, toast, emailAlerts, browserAlerts]);
+
+  const handleAgentToggle = (checked: boolean) => {
+    setAgentEnabled(checked);
+    if (!checked) {
+      toast({
+        title: "AI Agent disabled",
+        description: "Your AI job agent has been turned off."
+      });
+    }
+  };
+
+  const validateForm = () => {
+    if (!defaultResumeId) {
+      toast({
+        title: "Resume required",
+        description: "Please select a resume to enable the agent",
+        variant: "destructive"
+      });
+      return false;
+    }
+    return true;
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -182,7 +213,10 @@ const Agent = () => {
                 <CardTitle className="text-xl font-heading">AI Agent Status</CardTitle>
                 <Switch
                   checked={agentEnabled}
-                  onCheckedChange={setAgentEnabled}
+                  onCheckedChange={(checked) => {
+                    if (checked && !validateForm()) return;
+                    handleAgentToggle(checked);
+                  }}
                   disabled={isProcessing || !defaultResumeId}
                 />
               </div>
