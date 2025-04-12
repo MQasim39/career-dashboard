@@ -1,6 +1,10 @@
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
+import * as pdfjs from "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.10.111/+esm";
+
+// Set worker source path for PDF.js
+pdfjs.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.10.111/build/pdf.worker.min.js";
 
 // CORS headers for browser requests
 const corsHeaders = {
@@ -35,6 +39,23 @@ const JOB_TITLE_PATTERNS = [
 
 // Parse plain text to extract structured information
 function parseResumeText(text: string) {
+  console.log("Parsing resume text, content length:", text.length);
+  if (!text || text.length < 10) {
+    console.warn("Resume text is too short or empty:", text);
+    return {
+      skills: [],
+      education: [{ degree: "Unknown", school: "Unknown", dates: "" }],
+      experience: [{ title: "Unknown", company: "Unknown", dates: "", description: "No experience data extracted" }],
+      personal_info: {
+        name: "",
+        email: "",
+        phone: "",
+        location: ""
+      },
+      full_text: text || "Failed to extract text from document"
+    };
+  }
+
   // Normalize text
   const normalizedText = text.toLowerCase().replace(/\s+/g, ' ');
   
@@ -54,7 +75,7 @@ function parseResumeText(text: string) {
     
     // Basic parsing for school names (just a heuristic)
     const possibleSchools = educationSection.split(/[\n.;]/)
-      .filter(line => line.includes("University") || line.includes("College") || line.includes("Institute"))
+      .filter(line => line.includes("University") || line.includes("College") || line.includes("Institute") || line.includes("School"))
       .map(line => line.trim());
     
     if (degreeMatches.length > 0 || possibleSchools.length > 0) {
@@ -66,8 +87,16 @@ function parseResumeText(text: string) {
     }
   }
   
+  if (education.length === 0) {
+    education.push({
+      degree: "Not specified",
+      school: "Not found",
+      dates: ""
+    });
+  }
+  
   // Basic parsing for experience (simplified)
-  const experienceSection = extractSection(text, ["experience", "work experience", "professional experience"]);
+  const experienceSection = extractSection(text, ["experience", "work experience", "professional experience", "employment"]);
   const experience = [];
   if (experienceSection) {
     // Split into possible job entries
@@ -108,6 +137,15 @@ function parseResumeText(text: string) {
     }
   }
   
+  if (experience.length === 0) {
+    experience.push({
+      title: "Not specified",
+      company: "Not found",
+      dates: "",
+      description: "No work experience data could be extracted from the resume"
+    });
+  }
+  
   // Extract personal info (basic)
   const personalInfo = {
     name: extractName(text),
@@ -127,6 +165,8 @@ function parseResumeText(text: string) {
 
 // Helper to extract sections from text
 function extractSection(text: string, sectionNames: string[]) {
+  if (!text) return null;
+  
   const normalizedText = '\n' + text.toLowerCase();
   
   for (const name of sectionNames) {
@@ -151,6 +191,8 @@ function extractSection(text: string, sectionNames: string[]) {
 
 // Extract date ranges (simple regex)
 function extractDateRange(text: string) {
+  if (!text) return "";
+  
   const datePattern = /\b(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4}\s*(?:-|–|to)\s*(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4}|\b\d{4}\s*(?:-|–|to)\s*\d{4}|\b\d{4}\s*(?:-|–|to)\s*(present|current|now)\b/i;
   const match = text.match(datePattern);
   return match ? match[0] : "";
@@ -158,6 +200,8 @@ function extractDateRange(text: string) {
 
 // Extract email
 function extractEmail(text: string) {
+  if (!text) return "";
+  
   const emailPattern = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b/;
   const match = text.match(emailPattern);
   return match ? match[0] : "";
@@ -165,6 +209,8 @@ function extractEmail(text: string) {
 
 // Extract phone
 function extractPhone(text: string) {
+  if (!text) return "";
+  
   const phonePattern = /\b\(?\d{3}\)?[-.\s]?\d{3}[-.\s]?\d{4}\b/;
   const match = text.match(phonePattern);
   return match ? match[0] : "";
@@ -172,6 +218,8 @@ function extractPhone(text: string) {
 
 // Extract name (heuristic - assumes name is at beginning)
 function extractName(text: string) {
+  if (!text) return "";
+  
   const lines = text.split('\n').filter(l => l.trim());
   // Make a simplified guess using the first non-empty line
   if (lines.length > 0) {
@@ -185,6 +233,8 @@ function extractName(text: string) {
 
 // Extract location
 function extractLocation(text: string) {
+  if (!text) return "";
+  
   // Simple location extraction - looks for common location patterns
   const locationPatterns = [
     /\b[A-Z][a-z]+,\s*[A-Z]{2}\b/, // City, ST
@@ -200,28 +250,82 @@ function extractLocation(text: string) {
 
 // Parse plain text content from a resume file 
 async function extractResumeContent(fileContent: ArrayBuffer, fileType: string) {
+  console.log(`Extracting content from file of type: ${fileType}, size: ${fileContent.byteLength} bytes`);
   let textContent = "";
 
   try {
     if (fileType === 'application/pdf') {
-      // For PDF files, we'd need a PDF parser
-      // This is a placeholder for where you'd use a PDF parsing library
-      textContent = "PDF text extraction would happen here in production";
-      
-      // In a real implementation, we'd use the PDF.js library via a Deno-compatible CDN
+      console.log("Processing PDF file...");
+      try {
+        // Load PDF document using PDF.js
+        const pdfData = new Uint8Array(fileContent);
+        const loadingTask = pdfjs.getDocument({ data: pdfData });
+        const pdfDocument = await loadingTask.promise;
+        console.log(`PDF loaded successfully with ${pdfDocument.numPages} pages`);
+        
+        // Extract text from each page
+        let extractedText = "";
+        for (let i = 1; i <= pdfDocument.numPages; i++) {
+          const page = await pdfDocument.getPage(i);
+          const textContent = await page.getTextContent();
+          const pageText = textContent.items.map((item: any) => item.str).join(' ');
+          extractedText += pageText + "\n\n";
+        }
+        
+        textContent = extractedText;
+        console.log(`Extracted ${textContent.length} characters from PDF`);
+      } catch (pdfError) {
+        console.error("PDF parsing error:", pdfError);
+        // Fallback to simple content reporting
+        textContent = `Failed to parse PDF file: ${pdfError.message}. This file appears to be a PDF document of ${fileContent.byteLength} bytes.`;
+      }
     } else if (fileType.includes('word') || fileType.includes('docx')) {
-      // For Word documents
-      // This is a placeholder for where you'd use a DOCX parsing library
-      textContent = "DOCX text extraction would happen here in production";
+      console.log("Processing Word document...");
+      // For Word documents - basic extraction
+      // In production, you would use a proper DOCX parser
+      textContent = "This file appears to be a Word document. For most accurate parsing, please upload a PDF file.";
       
-      // In a real implementation, we'd use mammoth.js via a Deno-compatible CDN
-    } else {
-      // Assume it's plain text or something we can't parse
+      // Try to extract some raw text if possible
+      try {
+        const textDecoder = new TextDecoder();
+        const rawText = textDecoder.decode(fileContent);
+        
+        // Try to extract plain text from Word XML
+        const textMatches = rawText.match(/<w:t[^>]*>(.*?)<\/w:t>/g);
+        if (textMatches && textMatches.length > 0) {
+          const extractedText = textMatches
+            .map(match => match.replace(/<[^>]+>/g, ''))
+            .join(' ');
+          
+          textContent = extractedText;
+        }
+      } catch (docError) {
+        console.error("Word document parsing error:", docError);
+      }
+    } else if (fileType.includes('text') || fileType.includes('plain')) {
+      console.log("Processing plain text file...");
       textContent = new TextDecoder().decode(fileContent);
+    } else {
+      console.log("Unsupported file type, attempting generic text extraction...");
+      // Attempt generic text extraction for unsupported formats
+      try {
+        textContent = new TextDecoder().decode(fileContent);
+        if (!textContent || textContent.length < 10) {
+          textContent = `Unable to extract text from file of type: ${fileType}. Please upload a PDF or plain text file for best results.`;
+        }
+      } catch (error) {
+        console.error("Generic text extraction error:", error);
+        textContent = `Error extracting text from document: ${error.message}. Please upload a different file format.`;
+      }
     }
   } catch (error) {
-    console.error("Error extracting text:", error);
-    textContent = "Error extracting text from document.";
+    console.error("Error in extractResumeContent:", error);
+    textContent = `Error extracting text from document: ${error.message}. Please try a different file format or check if the file is corrupted.`;
+  }
+
+  // Make sure we return at least something
+  if (!textContent || textContent.length < 10) {
+    textContent = `Unable to extract meaningful text from the document. The file appears to be of type ${fileType} and size ${fileContent.byteLength} bytes. Please try uploading a PDF file.`;
   }
 
   return textContent;
@@ -234,6 +338,8 @@ serve(async (req) => {
   }
 
   try {
+    console.log("Parse-resume function invoked");
+    
     // Only accept POST requests
     if (req.method !== 'POST') {
       return new Response(JSON.stringify({ error: 'Method not allowed' }), {
@@ -244,10 +350,22 @@ serve(async (req) => {
 
     // Get the request body
     const requestData = await req.json();
+    console.log("Request data received:", JSON.stringify(requestData, null, 2));
     const { resumeId, fileUrl, fileType, userId } = requestData;
 
     if (!resumeId || !fileUrl || !userId) {
+      console.error("Missing required fields:", { resumeId, fileUrl, userId });
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    }
+
+    // Validate UUID format for resumeId
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (resumeId && !uuidRegex.test(resumeId)) {
+      console.error("Invalid resumeId format:", resumeId);
+      return new Response(JSON.stringify({ error: 'Invalid resumeId format. Must be a UUID.' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
@@ -258,13 +376,15 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     
     if (!supabaseUrl || !supabaseServiceKey) {
-      return new Response(JSON.stringify({ error: 'Server configuration error' }), {
+      console.error("Missing Supabase environment variables");
+      return new Response(JSON.stringify({ error: 'Server configuration error: Missing Supabase credentials' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    console.log("Supabase client created, attempting to download resume file...");
 
     // Download the resume file
     const { data: fileData, error: fileError } = await supabase
@@ -273,53 +393,82 @@ serve(async (req) => {
       .download(fileUrl);
 
     if (fileError || !fileData) {
-      return new Response(JSON.stringify({ error: `Error downloading resume: ${fileError?.message}` }), {
-        status: 500,
+      console.error("Error downloading resume:", fileError);
+      return new Response(JSON.stringify({ 
+        error: `Error downloading resume: ${fileError?.message || 'File not found'}`,
+        details: "The file may have been deleted or the storage bucket may be misconfigured." 
+      }), {
+        status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
 
+    console.log("Resume file downloaded successfully, extracting content...");
+    
     // Extract text content from the resume
     const textContent = await extractResumeContent(await fileData.arrayBuffer(), fileType);
+    console.log(`Text content extracted, length: ${textContent.length} characters`);
 
     // Parse the resume content
     const parsedResume = parseResumeText(textContent);
+    console.log("Resume parsed successfully");
 
     // Save the parsed resume to the database
-    const { data: insertData, error: insertError } = await supabase
-      .from('parsed_resumes')
-      .upsert({
-        user_id: userId,
-        resume_id: resumeId,
-        full_text: parsedResume.full_text,
-        skills: parsedResume.skills,
-        education: parsedResume.education,
-        experience: parsedResume.experience,
-        personal_info: parsedResume.personal_info,
-        updated_at: new Date().toISOString()
-      })
-      .select();
+    try {
+      console.log("Saving parsed resume to database...");
+      const { data: insertData, error: insertError } = await supabase
+        .from('parsed_resumes')
+        .upsert({
+          user_id: userId,
+          resume_id: resumeId,
+          full_text: parsedResume.full_text,
+          skills: parsedResume.skills,
+          education: parsedResume.education,
+          experience: parsedResume.experience,
+          personal_info: parsedResume.personal_info,
+          updated_at: new Date().toISOString()
+        })
+        .select();
 
-    if (insertError) {
-      return new Response(JSON.stringify({ error: `Error saving parsed resume: ${insertError.message}` }), {
+      if (insertError) {
+        console.error("Error saving parsed resume:", insertError);
+        return new Response(JSON.stringify({ 
+          error: `Error saving parsed resume: ${insertError.message}`,
+          parsedData: parsedResume // Return the parsed data even if saving failed
+        }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+
+      console.log("Parsed resume saved to database");
+      
+      // Return the parsed resume data
+      return new Response(JSON.stringify({
+        message: 'Resume parsed successfully',
+        data: parsedResume,
+        id: insertData[0]?.id
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
+    } catch (dbError) {
+      console.error("Database operation error:", dbError);
+      return new Response(JSON.stringify({ 
+        error: `Database error: ${dbError.message}`,
+        parsedData: parsedResume // Return the parsed data even if saving failed
+      }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
-
-    // Return the parsed resume data
-    return new Response(JSON.stringify({
-      message: 'Resume parsed successfully',
-      data: parsedResume,
-      id: insertData[0]?.id
-    }), {
-      status: 200,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
   } catch (error) {
     console.error('Error processing resume:', error);
     
-    return new Response(JSON.stringify({ error: `Internal server error: ${error.message}` }), {
+    return new Response(JSON.stringify({ 
+      error: `Internal server error: ${error.message}`,
+      details: "See function logs for more details"
+    }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' }
     });

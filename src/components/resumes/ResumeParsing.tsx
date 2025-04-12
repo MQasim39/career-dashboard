@@ -20,9 +20,14 @@ import ResumeParsingTabs from "./ResumeParsingTabs";
 interface ResumeParsingProps {
   resume: Resume;
   onParseComplete?: (parsedData: ParsedResume) => void;
+  onUploadNew?: () => void;
 }
 
-const ResumeParsing = ({ resume, onParseComplete }: ResumeParsingProps) => {
+const ResumeParsing = ({ 
+  resume, 
+  onParseComplete,
+  onUploadNew
+}: ResumeParsingProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("skills");
   
@@ -30,8 +35,17 @@ const ResumeParsing = ({ resume, onParseComplete }: ResumeParsingProps) => {
     isLoading, 
     error, 
     parsedResume, 
-    parseResume
+    parseResume,
+    retryParsing
   } = useResumeParsing(resume, onParseComplete);
+
+  const handleClose = () => {
+    setIsOpen(false);
+    // Reset the active tab when dialog is closed
+    setTimeout(() => {
+      if (!isOpen) setActiveTab("skills");
+    }, 300);
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
@@ -52,7 +66,16 @@ const ResumeParsing = ({ resume, onParseComplete }: ResumeParsingProps) => {
 
         {isLoading && <ResumeParsingLoading />}
 
-        {error && <ResumeParsingError error={error} />}
+        {error && (
+          <ResumeParsingError 
+            error={error} 
+            onRetry={retryParsing}
+            onUploadNew={onUploadNew ? () => {
+              handleClose();
+              onUploadNew();
+            } : undefined}
+          />
+        )}
 
         {parsedResume && (
           <ResumeParsingTabs 
@@ -63,21 +86,26 @@ const ResumeParsing = ({ resume, onParseComplete }: ResumeParsingProps) => {
         )}
 
         <DialogFooter>
-          {!isLoading && !parsedResume && (
+          {!isLoading && !parsedResume && !error && (
             <Button onClick={parseResume} className="w-full">
               Analyze Resume
             </Button>
           )}
           {parsedResume && (
             <div className="flex justify-between w-full">
-              <Button variant="outline" onClick={() => setIsOpen(false)}>
+              <Button variant="outline" onClick={handleClose}>
                 Close
               </Button>
-              <Button variant="default" onClick={() => setIsOpen(false)}>
+              <Button variant="default" onClick={handleClose}>
                 <CheckCircle2 className="h-4 w-4 mr-2" />
                 Confirm & Save
               </Button>
             </div>
+          )}
+          {error && (
+            <Button variant="outline" onClick={handleClose} className="mt-2">
+              Close
+            </Button>
           )}
         </DialogFooter>
       </DialogContent>

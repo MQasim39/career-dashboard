@@ -14,6 +14,8 @@ serve(async (req) => {
   }
 
   try {
+    console.log("AI Agent function invoked");
+    
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
     const claudeApiKey = Deno.env.get("CLAUDE_API_KEY") || "";
@@ -30,6 +32,11 @@ serve(async (req) => {
     
     // Get request data
     const requestData = await req.json();
+    console.log("Request data received:", JSON.stringify({
+      ...requestData,
+      user_id: requestData.user_id ? "REDACTED" : null, // Redact sensitive information in logs
+    }, null, 2));
+    
     const { 
       user_id, 
       resume_id, 
@@ -52,16 +59,18 @@ serve(async (req) => {
     // Validate resume_id is a valid UUID
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(resume_id)) {
+      console.error("Invalid resume_id format:", resume_id);
       throw new Error("Invalid resume_id format. Must be a UUID.");
     }
     
     // Step 1: Get the resume data
+    console.log(`Fetching parsed resume data for resume ID: ${resume_id}`);
     const { data: resumeData, error: resumeError } = await supabase
       .from("parsed_resumes")
       .select("*")
       .eq("resume_id", resume_id)
       .eq("user_id", user_id)
-      .single();
+      .maybeSingle(); // Use maybeSingle instead of single to prevent errors if no data
     
     if (resumeError) {
       console.error("Error fetching resume:", resumeError);
@@ -69,12 +78,30 @@ serve(async (req) => {
     }
     
     if (!resumeData) {
-      throw new Error("No parsed resume found for the provided resume_id. Please upload and parse a resume first.");
+      console.log("No parsed resume found, attempting to check if resume exists");
+      
+      // Check if the resume exists at all
+      const { data: rawResumeData, error: rawResumeError } = await supabase
+        .from("resumes")
+        .select("id, filename")
+        .eq("id", resume_id)
+        .maybeSingle();
+      
+      if (rawResumeError) {
+        console.error("Error checking resume existence:", rawResumeError);
+      }
+      
+      if (rawResumeData) {
+        throw new Error(`Resume exists but hasn't been parsed yet. Please parse resume "${rawResumeData.filename}" before activating the AI agent.`);
+      } else {
+        throw new Error("No resume found with the provided resume_id. Please upload and parse a resume first.");
+      }
     }
     
     // Step 2: Use Claude to analyze the resume and extract key information
     console.log("Analyzing resume with Claude...");
     const resumeAnalysis = await analyzeResumeWithClaude(claudeApiKey, resumeData);
+    console.log("Resume analysis complete, creating scraper configuration...");
     
     // Step 3: Create a scraper configuration based on resume analysis
     const configData = {
@@ -101,18 +128,17 @@ serve(async (req) => {
       frequency: "daily"
     };
     
-    console.log("Creating scraper configuration...");
-    
     // Step 4: Create the scraper configuration
+    console.log("Creating scraper configuration");
     const { data: configResult, error: configError } = await supabase
       .from('scraper_configurations')
-      .insert(configData)
+      .upsert(configData)
       .select()
       .single();
       
     if (configError) {
       console.error("Error creating scraper configuration:", configError);
-      throw configError;
+      throw new Error(`Error creating scraper configuration: ${configError.message}`);
     }
     
     // Step 5: Add to the scraper queue
@@ -129,7 +155,7 @@ serve(async (req) => {
       
     if (queueError) {
       console.error("Error adding to scraper queue:", queueError);
-      throw queueError;
+      throw new Error(`Error adding to scraper queue: ${queueError.message}`);
     }
     
     // Step 6: Run the scraper
@@ -137,24 +163,39 @@ serve(async (req) => {
     
     if (queueItemId) {
       console.log(`Starting scrape-jobs function with queue item ID: ${queueItemId}`);
-      const { error: functionError } = await supabase.functions.invoke('scrape-jobs', {
-        body: { 
-          configuration_id: configResult.id,
-          queue_item_id: queueItemId,
-          resume_id: resume_id,
-          resume_analysis: resumeAnalysis
+      try {
+        const { error: functionError } = await supabase.functions.invoke('scrape-jobs', {
+          body: { 
+            configuration_id: configResult.id,
+            queue_item_id: queueItemId,
+            resume_id: resume_id,
+            resume_analysis: resumeAnalysis
+          }
+        });
+        
+        if (functionError) {
+          console.error("Error invoking scrape-jobs function:", functionError);
+          throw new Error(`Error invoking scrape-jobs function: ${functionError.message}`);
         }
-      });
-      
-      if (functionError) {
-        console.error("Error invoking scrape-jobs function:", functionError);
-        throw functionError;
+      } catch (invokeError) {
+        console.error("Error invoking scrape-jobs function:", invokeError);
+        // Don't fail the entire process if job scraping fails, just log it
+        // We'll update the queue item status to reflect the error
+        await supabase
+          .from('scraper_queue')
+          .update({ 
+            status: 'failed', 
+            error_message: `Failed to invoke scrape-jobs: ${invokeError.message}`,
+            completed_at: new Date().toISOString()
+          })
+          .eq('id', queueItemId);
       }
     } else {
       throw new Error("Failed to create queue item");
     }
     
     // Step 7: Wait for scraping to complete (poll the queue item status)
+    console.log("Waiting for scraping to complete...");
     let scrapingComplete = false;
     let attempts = 0;
     const maxAttempts = 10;
@@ -164,17 +205,21 @@ serve(async (req) => {
       
       const { data: queueStatus, error: statusError } = await supabase
         .from('scraper_queue')
-        .select('status')
+        .select('status, error_message')
         .eq('id', queueItemId)
-        .single();
+        .maybeSingle();
       
       if (statusError) {
         console.error("Error checking queue status:", statusError);
-        throw statusError;
+        break; // Don't throw error, just break the polling loop
       }
       
-      if (queueStatus.status === 'completed' || queueStatus.status === 'failed') {
+      if (queueStatus && (queueStatus.status === 'completed' || queueStatus.status === 'failed')) {
         scrapingComplete = true;
+        console.log(`Scraping completed with status: ${queueStatus.status}`);
+        if (queueStatus.status === 'failed' && queueStatus.error_message) {
+          console.log(`Scraping error: ${queueStatus.error_message}`);
+        }
       }
       
       attempts++;
@@ -183,7 +228,14 @@ serve(async (req) => {
     // Step 8: Use Claude to enhance job matching
     if (scrapingComplete) {
       console.log("Scraping complete. Enhancing job matching with Claude...");
-      await enhanceJobMatchingWithClaude(claudeApiKey, supabase, user_id, resume_id, resumeAnalysis);
+      try {
+        await enhanceJobMatchingWithClaude(claudeApiKey, supabase, user_id, resume_id, resumeAnalysis);
+      } catch (enhanceError) {
+        console.error("Error enhancing job matches:", enhanceError);
+        // Don't fail the entire process if enhancement fails
+      }
+    } else {
+      console.log("Scraping did not complete within the timeout period. Job matching will be handled asynchronously.");
     }
     
     return new Response(
@@ -235,7 +287,7 @@ async function analyzeResumeWithClaude(apiKey, resumeData) {
     Experience: ${JSON.stringify(experience)}
     Education: ${JSON.stringify(education)}
     
-    Additional resume text: ${fullText.substring(0, 2000)}
+    Additional resume text: ${fullText ? fullText.substring(0, 2000) : "No full text available"}
     
     Based on this resume, provide:
     1. Top 5-10 keywords for job search
@@ -271,11 +323,11 @@ async function analyzeResumeWithClaude(apiKey, resumeData) {
     
     if (!response.ok) {
       console.error(`Claude API error: ${response.status}`);
-      throw new Error(`Claude API error: ${response.status}`);
+      throw new Error(`Claude API error: ${response.status} - ${await response.text()}`);
     }
     
     const data = await response.json();
-    const analysisText = data.content[0].text;
+    const analysisText = data.content && data.content[0] && data.content[0].text ? data.content[0].text : "{}";
     
     // Extract JSON from the response
     const jsonMatch = analysisText.match(/\{[\s\S]*\}/);
@@ -351,7 +403,7 @@ async function enhanceJobMatchingWithClaude(apiKey, supabase, userId, resumeId, 
           .from('scraped_jobs')
           .select('*')
           .eq('id', match.job_id)
-          .single();
+          .maybeSingle();
         
         if (jobError) {
           console.error(`Error fetching job ${match.job_id}:`, jobError);
@@ -407,20 +459,25 @@ async function enhanceJobMatchingWithClaude(apiKey, supabase, userId, resumeId, 
 
 // Function to get enhanced match score using Claude
 async function getEnhancedMatchScore(apiKey, job, resumeAnalysis) {
+  if (!job) {
+    console.log("No job data provided for match scoring");
+    return 50; // Return default score
+  }
+  
   const prompt = `
     Compare this job with the candidate's profile and provide a match score (0-100):
     
-    Job Title: ${job.title}
-    Company: ${job.company}
+    Job Title: ${job.title || "Unknown"}
+    Company: ${job.company || "Unknown"}
     Job Description: ${job.description ? job.description.substring(0, 1000) : "N/A"}
     Required Skills: ${JSON.stringify(job.skills_required || [])}
     Requirements: ${JSON.stringify(job.requirements || [])}
     
     Candidate Profile:
-    - Experience Level: ${resumeAnalysis.experienceLevel}
-    - Technical Skills Rating: ${resumeAnalysis.technicalSkillsRating}/10
-    - Suggested Roles: ${JSON.stringify(resumeAnalysis.suggestedRoles)}
-    - Keywords: ${JSON.stringify(resumeAnalysis.suggestedKeywords)}
+    - Experience Level: ${resumeAnalysis.experienceLevel || "mid"}
+    - Technical Skills Rating: ${resumeAnalysis.technicalSkillsRating || 5}/10
+    - Suggested Roles: ${JSON.stringify(resumeAnalysis.suggestedRoles || [])}
+    - Keywords: ${JSON.stringify(resumeAnalysis.suggestedKeywords || [])}
     
     Provide only a number between 0 and 100 representing the match percentage.
   `;
@@ -451,7 +508,9 @@ async function getEnhancedMatchScore(apiKey, job, resumeAnalysis) {
     }
     
     const data = await response.json();
-    const scoreText = data.content[0].text.trim();
+    const scoreText = data.content && data.content[0] && data.content[0].text 
+      ? data.content[0].text.trim() 
+      : "50";
     
     // Extract the score from the response
     const scoreMatch = scoreText.match(/\d+/);
