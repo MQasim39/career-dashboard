@@ -2,9 +2,8 @@
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Settings, History, Play } from "lucide-react";
+import { PlusCircle, Settings, History } from "lucide-react";
 import { useJobScrapers } from "@/hooks/use-job-scrapers";
-import { JobSourceSelector } from "@/components/job-scraping/JobSourceSelector";
 import { ScraperConfigurationForm } from "@/components/job-scraping/ScraperConfigurationForm";
 import { ScraperConfigurationList } from "@/components/job-scraping/ScraperConfigurationList";
 import { ScraperHistoryList } from "@/components/job-scraping/ScraperHistoryList";
