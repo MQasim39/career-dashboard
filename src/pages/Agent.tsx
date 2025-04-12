@@ -41,6 +41,7 @@ import { useJobMatching } from "@/hooks/use-job-matching";
 import { usePythonBackend } from "@/services/python-backend";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AgentState {
   enabled: boolean;
@@ -74,7 +75,7 @@ const Agent = () => {
     firecrawl: "unknown"
   });
   const { toast } = useToast();
-  const { user } = useAuth();
+  const { user, session } = useAuth();
   const { jobMatches, isLoading: isLoadingMatches } = useJobMatching(defaultResumeId || undefined);
   const { 
     isConfigured, 
@@ -144,9 +145,12 @@ const Agent = () => {
         
         console.log("Activating AI Agent with resume:", defaultResumeId);
         
-        // Get session token
-        const session = await user?.getSession();
+        // Get access token from session directly
         const token = session?.access_token;
+        
+        if (!token) {
+          throw new Error("Unable to get authentication token. Please try signing out and back in.");
+        }
         
         // Call Python backend
         const response = await activateAgent({
@@ -197,6 +201,7 @@ const Agent = () => {
     agentState.emailAlerts, 
     agentState.browserAlerts,
     user, 
+    session,
     defaultResumeId, 
     toast, 
     isConfigured,
