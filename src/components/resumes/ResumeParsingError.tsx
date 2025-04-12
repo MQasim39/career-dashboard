@@ -17,7 +17,7 @@ const ResumeParsingError = ({
   // Provide more user-friendly error messages
   const getUserFriendlyError = (errorMessage: string) => {
     if (errorMessage.includes("Edge Function returned a non-2xx status code")) {
-      return "Our resume parsing service encountered an issue. This could be due to the file format or content.";
+      return "Our resume parsing service encountered an issue. The Python backend may be temporarily unavailable.";
     }
     
     if (errorMessage.includes("PDF")) {
