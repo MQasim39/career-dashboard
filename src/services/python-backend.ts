@@ -149,6 +149,53 @@ export class PythonBackendService {
       throw error;
     }
   }
+
+  /**
+   * Get API status
+   */
+  static async getApiStatus(): Promise<{
+    api: string;
+    claude_api: string;
+    supabase: string;
+    firecrawl: string;
+  }> {
+    return this.request<{
+      api: string;
+      claude_api: string;
+      supabase: string;
+      firecrawl: string;
+    }>('/api-status');
+  }
+
+  /**
+   * Activate AI agent
+   */
+  static async activateAgent(
+    data: {
+      user_id: string;
+      resume_id: string;
+      location?: string;
+      job_type?: string;
+      department?: string;
+      salary_range?: [number, number];
+      email_alerts?: boolean;
+      browser_alerts?: boolean;
+    },
+    token?: string
+  ): Promise<any> {
+    return this.request('/activate-agent', 'POST', data, token);
+  }
+
+  /**
+   * Get job matches
+   */
+  static async getJobMatches(
+    userId: string,
+    resumeId: string,
+    token?: string
+  ): Promise<any> {
+    return this.request(`/job-matches?user_id=${userId}&resume_id=${resumeId}`, 'GET', undefined, token);
+  }
 }
 
 /**
@@ -180,5 +227,8 @@ export const usePythonBackend = () => {
     setBackendUrl: PythonBackendService.setBackendUrl,
     request: PythonBackendService.request,
     uploadFile: PythonBackendService.uploadFile,
+    getApiStatus: PythonBackendService.getApiStatus,
+    activateAgent: PythonBackendService.activateAgent,
+    getJobMatches: PythonBackendService.getJobMatches
   };
 };

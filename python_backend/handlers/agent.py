@@ -6,12 +6,21 @@ from typing import Dict, List, Any, Optional
 import uuid
 from utils.supabase_client import get_supabase_client
 from utils.error_handler import AppError
+from utils.claude_client import ClaudeClient
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 import re
 
 logger = logging.getLogger(__name__)
+
+# Initialize Claude client
+claude_client = None
+try:
+    claude_client = ClaudeClient()
+    logger.info("Claude client initialized successfully")
+except Exception as e:
+    logger.error(f"Failed to initialize Claude client: {str(e)}")
 
 def activate_agent(data: Dict[str, Any]) -> Dict[str, Any]:
     """
@@ -129,6 +138,12 @@ def run_job_matching(user_id: str, resume_id: str) -> None:
             
         parsed_resume = parsed_resume_result.data[0]
         
+        # Get resume file path
+        resume_result = supabase.table('resumes').select('*').eq('id', resume_id).execute()
+        if not resume_result.data:
+            logger.error(f"Resume not found: {resume_id}")
+            raise AppError("Resume not found", 404)
+        
         # Get jobs to match against
         jobs_result = supabase.table('scraped_jobs').select('*').execute()
         jobs = jobs_result.data
@@ -139,8 +154,12 @@ def run_job_matching(user_id: str, resume_id: str) -> None:
         
         logger.info(f"Matching resume against {len(jobs)} jobs")
         
-        # Extract skills from parsed resume
-        resume_skills = parsed_resume.get('skills', [])
+        # Use Claude to enhance job matching if available
+        use_claude = claude_client is not None
+        if use_claude:
+            logger.info("Using Claude for enhanced job matching")
+        else:
+            logger.info("Claude client not available, using basic matching")
         
         # Calculate matches for each job
         matches = []
@@ -148,20 +167,54 @@ def run_job_matching(user_id: str, resume_id: str) -> None:
         for job in jobs:
             job_id = job['id']
             
-            # Calculate match score
-            match_score, matched_skills = calculate_match_score(parsed_resume, job)
-            
-            if match_score >= 70:  # Only store high-quality matches
-                # Prepare match record
-                match_record = {
-                    'user_id': user_id,
-                    'resume_id': resume_id,
-                    'job_id': job_id,
-                    'match_score': match_score,
-                    'skills_matched': matched_skills
-                }
+            try:
+                # Calculate match score with Claude if available
+                if use_claude:
+                    # Get full resume text
+                    resume_text = parsed_resume.get('full_text', '')
+                    
+                    # Combine job data
+                    job_text = f"{job.get('title', '')}\n{job.get('description', '')}\n"
+                    for req in job.get('requirements', []):
+                        job_text += f"- {req}\n"
+                    
+                    # Use Claude to enhance matching
+                    match_data = claude_client.enhance_job_matching(
+                        {
+                            "skills": parsed_resume.get('skills', []),
+                            "experience": parsed_resume.get('experience', []),
+                            "education": parsed_resume.get('education', []),
+                            "full_text": resume_text
+                        },
+                        {
+                            "title": job.get('title', ''),
+                            "company": job.get('company', ''),
+                            "description": job.get('description', ''),
+                            "requirements": job.get('requirements', [])
+                        }
+                    )
+                    
+                    match_score = match_data.get('match_score', 0)
+                    matched_skills = match_data.get('matching_skills', [])
+                    
+                else:
+                    # Fall back to traditional matching
+                    match_score, matched_skills = calculate_match_score(parsed_resume, job)
                 
-                matches.append(match_record)
+                if match_score >= 70:  # Only store high-quality matches
+                    # Prepare match record
+                    match_record = {
+                        'user_id': user_id,
+                        'resume_id': resume_id,
+                        'job_id': job_id,
+                        'match_score': match_score,
+                        'skills_matched': matched_skills
+                    }
+                    
+                    matches.append(match_record)
+            except Exception as e:
+                logger.error(f"Error calculating match for job {job_id}: {str(e)}")
+                # Continue processing other jobs
         
         # Store matches in database
         if matches:

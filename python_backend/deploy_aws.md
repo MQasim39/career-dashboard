@@ -9,6 +9,14 @@ This guide provides instructions on how to deploy the Python backend to AWS Lamb
 2. Install AWS SAM CLI: [AWS SAM CLI Installation Guide](https://docs.aws.amazon.com/serverless-application-model/latest/developerguide/serverless-sam-cli-install.html)
 3. Configure AWS CLI with your credentials: `aws configure`
 
+## API Keys and Environment Variables
+
+Ensure you have these API keys ready for the deployment:
+
+1. Supabase credentials (URL and service role key)
+2. Firecrawl API key (for job scraping)
+3. Anthropic API key (for Claude AI model)
+
 ## Deployment Steps
 
 ### 1. Create a SAM Template
@@ -22,7 +30,7 @@ Description: Job Scraper and Resume Parser Backend
 
 Globals:
   Function:
-    Timeout: 30
+    Timeout: 60
     MemorySize: 1024
     Environment:
       Variables:
@@ -31,6 +39,7 @@ Globals:
         SUPABASE_SERVICE_ROLE_KEY: ${SUPABASE_SERVICE_ROLE_KEY}
         JWT_SECRET: ${JWT_SECRET}
         FIRECRAWL_API_KEY: ${FIRECRAWL_API_KEY}
+        ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
         FLASK_DEBUG: false
 
 Resources:
@@ -73,6 +82,10 @@ Create a file named `aws_lambda.py` in the `python_backend` directory:
 ```python
 import app
 import awsgi
+import nltk
+
+# Download necessary NLTK data
+nltk.download('punkt')
 
 def handler(event, context):
     """
@@ -84,7 +97,7 @@ def handler(event, context):
 
 ### 3. Update the Requirements
 
-Add AWSGI to your `requirements.txt`:
+Add required packages to your `requirements.txt`:
 
 ```
 aws-wsgi==0.2.7
@@ -118,7 +131,7 @@ aws-wsgi==0.2.7
    region = "us-east-1"
    confirm_changeset = true
    capabilities = "CAPABILITY_IAM"
-   parameter_overrides = "SUPABASE_URL=your-supabase-url SUPABASE_ANON_KEY=your-anon-key SUPABASE_SERVICE_ROLE_KEY=your-service-role-key JWT_SECRET=your-jwt-secret FIRECRAWL_API_KEY=your-firecrawl-api-key"
+   parameter_overrides = "SUPABASE_URL=your-supabase-url SUPABASE_ANON_KEY=your-anon-key SUPABASE_SERVICE_ROLE_KEY=your-service-role-key JWT_SECRET=your-jwt-secret FIRECRAWL_API_KEY=your-firecrawl-api-key ANTHROPIC_API_KEY=your-anthropic-api-key"
    ```
 
 2. Deploy the application:
@@ -136,21 +149,21 @@ aws-wsgi==0.2.7
 
 After deployment, update your frontend to use the new API URL:
 
-```javascript
-// In your frontend API client configuration
-const backendUrl = 'https://your-lambda-api-url.execute-api.us-east-1.amazonaws.com/prod';
-```
+1. Log in to your application
+2. Navigate to Settings > Python Backend
+3. Enter the API Gateway URL (from the deployment output)
+4. Test the connection to verify it's working
 
 ## Additional Configuration
 
 ### Adding Layers for Large Dependencies
 
-If your deployment package is too large, you can use Lambda Layers:
+For large dependencies like Claude, scikit-learn, and NLTK, use Lambda Layers:
 
 1. Create a layer for large dependencies:
    ```bash
    mkdir -p layer/python
-   pip install numpy pandas scikit-learn nltk -t layer/python
+   pip install anthropic nltk scikit-learn pandas -t layer/python
    ```
 
 2. Update your `template.yaml` to include the layer:
@@ -171,13 +184,40 @@ If your deployment package is too large, you can use Lambda Layers:
            - !Ref JobDependenciesLayer
    ```
 
-### Setting Up Custom Domain Name
+### Setting Up Cloud Watch Alarms for API Usage
 
-To use a custom domain name:
+To monitor Claude API usage:
 
-1. Create an ACM certificate for your domain
-2. Set up a custom domain in API Gateway
-3. Update your `template.yaml` to include the domain configuration
+1. Set up CloudWatch Log Metric Filters to track Claude API calls:
+   ```yaml
+   ClaudeApiMetricFilter:
+     Type: AWS::Logs::MetricFilter
+     Properties:
+       LogGroupName: !Ref JobBackendLogGroup
+       FilterPattern: "[timestamp, level, message, component=Claude, event=API_CALL]"
+       MetricTransformations:
+         - MetricNamespace: "JobBackend"
+           MetricName: "ClaudeApiCalls"
+           MetricValue: "1"
+   ```
+
+2. Create a CloudWatch Alarm for excessive usage:
+   ```yaml
+   ClaudeApiUsageAlarm:
+     Type: AWS::CloudWatch::Alarm
+     Properties:
+       AlarmName: "ExcessiveClaudeAPIUsage"
+       AlarmDescription: "Alert when Claude API usage exceeds threshold"
+       Namespace: "JobBackend"
+       MetricName: "ClaudeApiCalls"
+       Statistic: "Sum"
+       Period: 3600
+       EvaluationPeriods: 1
+       Threshold: 100
+       ComparisonOperator: "GreaterThanThreshold"
+       AlarmActions:
+         - !Ref AlertTopic
+   ```
 
 ### Schedule Regular Job Scraping
 

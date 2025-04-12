@@ -1,5 +1,6 @@
+
 import { useState, useEffect } from "react";
-import { Bot, Bell, Mail, FileText, Info } from "lucide-react";
+import { Bot, Bell, Mail, FileText, Info, Server } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
@@ -8,7 +9,8 @@ import {
   CardContent,
   CardDescription,
   CardHeader,
-  CardTitle
+  CardTitle,
+  CardFooter
 } from "@/components/ui/card";
 import {
   Select,
@@ -34,90 +36,102 @@ import {
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { useResumes } from "@/hooks/use-resumes";
 import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
 import { useJobMatching } from "@/hooks/use-job-matching";
+import { usePythonBackend } from "@/services/python-backend";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
-interface QueueItem {
-  id: string;
-  configuration_id: string;
-  status: string;
-  scheduled_for: string;
-  priority: number;
+interface AgentState {
+  enabled: boolean;
+  location: string;
+  jobType: string;
+  department: string;
+  salaryRange: [number, number];
+  emailAlerts: boolean;
+  browserAlerts: boolean;
+  configId: string | null;
 }
 
 const Agent = () => {
   const { resumes, defaultResumeId, setDefaultResume } = useResumes();
-  const [agentEnabled, setAgentEnabled] = useState(false);
-  const [location, setLocation] = useState("");
-  const [jobType, setJobType] = useState("full-time");
-  const [department, setDepartment] = useState("");
-  const [salaryRange, setSalaryRange] = useState([40000, 120000]);
-  const [emailAlerts, setEmailAlerts] = useState(true);
-  const [browserAlerts, setBrowserAlerts] = useState(true);
+  const [agentState, setAgentState] = useState<AgentState>({
+    enabled: false,
+    location: "",
+    jobType: "full-time",
+    department: "",
+    salaryRange: [40000, 120000] as [number, number],
+    emailAlerts: true,
+    browserAlerts: true,
+    configId: null
+  });
   const [isProcessing, setIsProcessing] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
-  const [configId, setConfigId] = useState<string | null>(null);
+  const [backendStatus, setBackendStatus] = useState({
+    api: "unknown",
+    claude_api: "unknown",
+    supabase: "unknown",
+    firecrawl: "unknown"
+  });
   const { toast } = useToast();
   const { user } = useAuth();
   const { jobMatches, isLoading: isLoadingMatches } = useJobMatching(defaultResumeId || undefined);
+  const { 
+    isConfigured, 
+    checkConfiguration, 
+    activateAgent, 
+    getApiStatus 
+  } = usePythonBackend();
 
+  // Load saved agent state
   useEffect(() => {
     if (user) {
-      const savedState = localStorage.getItem(`agent_enabled_${user.id}`);
-      const savedConfig = localStorage.getItem(`agent_config_${user.id}`);
-      const savedLocation = localStorage.getItem(`agent_location_${user.id}`);
-      const savedJobType = localStorage.getItem(`agent_jobType_${user.id}`);
-      const savedDepartment = localStorage.getItem(`agent_department_${user.id}`);
-      const savedSalaryRange = localStorage.getItem(`agent_salaryRange_${user.id}`);
-      const savedEmailAlerts = localStorage.getItem(`agent_emailAlerts_${user.id}`);
-      const savedBrowserAlerts = localStorage.getItem(`agent_browserAlerts_${user.id}`);
-
-      if (savedState === 'true') setAgentEnabled(true);
-      if (savedConfig) setConfigId(savedConfig);
-      if (savedLocation) setLocation(savedLocation);
-      if (savedJobType) setJobType(savedJobType);
-      if (savedDepartment) setDepartment(savedDepartment);
-      if (savedSalaryRange) {
+      const savedState = localStorage.getItem(`agent_state_${user.id}`);
+      if (savedState) {
         try {
-          setSalaryRange(JSON.parse(savedSalaryRange));
+          const parsedState = JSON.parse(savedState);
+          setAgentState(parsedState);
         } catch (e) {
-          console.error("Error parsing saved salary range:", e);
+          console.error("Error parsing saved agent state:", e);
         }
       }
-      if (savedEmailAlerts) setEmailAlerts(savedEmailAlerts === 'true');
-      if (savedBrowserAlerts) setBrowserAlerts(savedBrowserAlerts === 'true');
     }
   }, [user]);
 
+  // Save agent state
   useEffect(() => {
     if (user) {
-      localStorage.setItem(`agent_enabled_${user.id}`, agentEnabled.toString());
-      localStorage.setItem(`agent_location_${user.id}`, location);
-      localStorage.setItem(`agent_jobType_${user.id}`, jobType);
-      localStorage.setItem(`agent_department_${user.id}`, department);
-      localStorage.setItem(`agent_salaryRange_${user.id}`, JSON.stringify(salaryRange));
-      localStorage.setItem(`agent_emailAlerts_${user.id}`, emailAlerts.toString());
-      localStorage.setItem(`agent_browserAlerts_${user.id}`, browserAlerts.toString());
-      if (configId) {
-        localStorage.setItem(`agent_config_${user.id}`, configId);
-      }
+      localStorage.setItem(`agent_state_${user.id}`, JSON.stringify(agentState));
     }
-  }, [
-    user,
-    agentEnabled,
-    configId,
-    location,
-    jobType,
-    department,
-    salaryRange,
-    emailAlerts,
-    browserAlerts
-  ]);
+  }, [user, agentState]);
 
+  // Check backend status
+  useEffect(() => {
+    const checkBackendStatus = async () => {
+      if (!isConfigured()) return;
+      
+      try {
+        const status = await getApiStatus();
+        setBackendStatus(status);
+      } catch (error) {
+        console.error("Error checking API status:", error);
+      }
+    };
+    
+    checkBackendStatus();
+    // Check every 5 minutes
+    const interval = setInterval(checkBackendStatus, 5 * 60 * 1000);
+    return () => clearInterval(interval);
+  }, [getApiStatus, isConfigured]);
+
+  // Activate AI agent
   useEffect(() => {
     const activateAIAgent = async () => {
-      if (!agentEnabled || !user || !defaultResumeId) return;
+      if (!agentState.enabled || !user || !defaultResumeId) return;
+      if (!isConfigured()) {
+        setAgentState(prev => ({ ...prev, enabled: false }));
+        return;
+      }
 
       setIsProcessing(true);
       setLastError(null);
@@ -130,26 +144,27 @@ const Agent = () => {
         
         console.log("Activating AI Agent with resume:", defaultResumeId);
         
-        const { data, error: functionError } = await supabase.functions.invoke('ai-agent', {
-          body: {
-            user_id: user.id,
-            resume_id: defaultResumeId,
-            location: location,
-            job_type: jobType,
-            department: department,
-            salary_range: salaryRange,
-            email_alerts: emailAlerts,
-            browser_alerts: browserAlerts
-          }
-        });
+        // Get session token
+        const session = await user?.getSession();
+        const token = session?.access_token;
+        
+        // Call Python backend
+        const response = await activateAgent({
+          user_id: user.id,
+          resume_id: defaultResumeId,
+          location: agentState.location,
+          job_type: agentState.jobType,
+          department: agentState.department,
+          salary_range: agentState.salaryRange,
+          email_alerts: agentState.emailAlerts,
+          browser_alerts: agentState.browserAlerts
+        }, token);
 
-        if (functionError) {
-          console.error("AI Agent activation error:", functionError);
-          throw new Error(`AI Agent activation failed: ${functionError.message || "Unknown error"}`);
-        }
-
-        if (data && data.config_id) {
-          setConfigId(data.config_id);
+        if (response && response.data && response.data.config_id) {
+          setAgentState(prev => ({
+            ...prev,
+            configId: response.data.config_id
+          }));
         }
 
         toast({
@@ -164,18 +179,35 @@ const Agent = () => {
           description: error.message || "There was an error activating your AI job agent.",
           variant: "destructive",
         });
+        setAgentState(prev => ({ ...prev, enabled: false }));
       } finally {
         setIsProcessing(false);
       }
     };
 
-    if (agentEnabled && !isProcessing) {
+    if (agentState.enabled && !isProcessing) {
       activateAIAgent();
     }
-  }, [agentEnabled, user, defaultResumeId, location, jobType, department, salaryRange, toast, emailAlerts, browserAlerts]);
+  }, [
+    agentState.enabled, 
+    agentState.location, 
+    agentState.jobType, 
+    agentState.department, 
+    agentState.salaryRange, 
+    agentState.emailAlerts, 
+    agentState.browserAlerts,
+    user, 
+    defaultResumeId, 
+    toast, 
+    isConfigured,
+    activateAgent
+  ]);
 
   const handleAgentToggle = (checked: boolean) => {
-    setAgentEnabled(checked);
+    if (checked && !validateForm()) return;
+    
+    setAgentState(prev => ({ ...prev, enabled: checked }));
+    
     if (!checked) {
       toast({
         title: "AI Agent disabled",
@@ -185,6 +217,15 @@ const Agent = () => {
   };
 
   const validateForm = () => {
+    if (!isConfigured()) {
+      toast({
+        title: "Python Backend Not Configured",
+        description: "Please configure the Python backend URL in the settings",
+        variant: "destructive"
+      });
+      return false;
+    }
+    
     if (!defaultResumeId) {
       toast({
         title: "Resume required",
@@ -194,6 +235,25 @@ const Agent = () => {
       return false;
     }
     return true;
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "healthy":
+      case "connected":
+      case "configured":
+        return <Badge variant="outline" className="bg-green-500/20 text-green-500">Available</Badge>;
+      case "not configured":
+        return <Badge variant="outline" className="bg-amber-500/20 text-amber-500">Not Configured</Badge>;
+      case "error":
+        return <Badge variant="outline" className="bg-red-500/20 text-red-500">Error</Badge>;
+      default:
+        return <Badge variant="outline" className="bg-gray-500/20 text-gray-500">Unknown</Badge>;
+    }
+  };
+
+  const updateAgentState = <K extends keyof AgentState>(key: K, value: AgentState[K]) => {
+    setAgentState(prev => ({ ...prev, [key]: value }));
   };
 
   return (
@@ -212,16 +272,13 @@ const Agent = () => {
               <div className="flex justify-between items-center">
                 <CardTitle className="text-xl font-heading">AI Agent Status</CardTitle>
                 <Switch
-                  checked={agentEnabled}
-                  onCheckedChange={(checked) => {
-                    if (checked && !validateForm()) return;
-                    handleAgentToggle(checked);
-                  }}
-                  disabled={isProcessing || !defaultResumeId}
+                  checked={agentState.enabled}
+                  onCheckedChange={handleAgentToggle}
+                  disabled={isProcessing || !defaultResumeId || !isConfigured()}
                 />
               </div>
               <CardDescription>
-                {agentEnabled
+                {agentState.enabled
                   ? "Your AI job agent is actively searching for matching positions"
                   : "Enable the AI agent to start intelligent job matching"}
               </CardDescription>
@@ -232,7 +289,7 @@ const Agent = () => {
                 <span className="text-sm">
                   {isProcessing
                     ? "AI agent is analyzing your resume and searching for jobs..."
-                    : agentEnabled
+                    : agentState.enabled
                     ? "AI agent is actively matching jobs based on your resume and preferences"
                     : "AI agent is currently inactive"}
                 </span>
@@ -258,7 +315,39 @@ const Agent = () => {
                   <span>You need to select a resume to enable the agent</span>
                 </div>
               )}
+
+              {!isConfigured() && (
+                <div className="mt-3 text-sm text-amber-500 flex items-center gap-2">
+                  <Server className="h-4 w-4" />
+                  <span>Python backend is not configured. Please set it up in Settings</span>
+                </div>
+              )}
             </CardContent>
+            {isConfigured() && (
+              <CardFooter className="border-t pt-3">
+                <div className="w-full">
+                  <div className="text-sm font-medium mb-2">Service Status</div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">API:</span>
+                      {getStatusBadge(backendStatus.api)}
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Claude AI:</span>
+                      {getStatusBadge(backendStatus.claude_api)}
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Supabase:</span>
+                      {getStatusBadge(backendStatus.supabase)}
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Firecrawl:</span>
+                      {getStatusBadge(backendStatus.firecrawl)}
+                    </div>
+                  </div>
+                </div>
+              </CardFooter>
+            )}
           </Card>
 
           <Card className="shadow-sm">
@@ -275,13 +364,16 @@ const Agent = () => {
                   <Input
                     id="location"
                     placeholder="City, State, or Remote"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
+                    value={agentState.location}
+                    onChange={(e) => updateAgentState('location', e.target.value)}
                   />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="job-type">Job Type</Label>
-                  <Select value={jobType} onValueChange={setJobType}>
+                  <Select 
+                    value={agentState.jobType} 
+                    onValueChange={(value) => updateAgentState('jobType', value)}
+                  >
                     <SelectTrigger id="job-type">
                       <SelectValue placeholder="Select job type" />
                     </SelectTrigger>
@@ -301,8 +393,8 @@ const Agent = () => {
                 <Input
                   id="department"
                   placeholder="Engineering, Marketing, etc."
-                  value={department}
-                  onChange={(e) => setDepartment(e.target.value)}
+                  value={agentState.department}
+                  onChange={(e) => updateAgentState('department', e.target.value)}
                 />
               </div>
 
@@ -310,16 +402,15 @@ const Agent = () => {
                 <div className="flex justify-between">
                   <Label>Salary Range</Label>
                   <span className="text-sm text-muted-foreground">
-                    ${salaryRange[0].toLocaleString()} - ${salaryRange[1].toLocaleString()}
+                    ${agentState.salaryRange[0].toLocaleString()} - ${agentState.salaryRange[1].toLocaleString()}
                   </span>
                 </div>
                 <Slider
-                  defaultValue={[40000, 120000]}
                   min={0}
                   max={250000}
                   step={5000}
-                  value={salaryRange}
-                  onValueChange={setSalaryRange}
+                  value={agentState.salaryRange}
+                  onValueChange={(value) => updateAgentState('salaryRange', value as [number, number])}
                   className="py-4"
                 />
               </div>
@@ -438,8 +529,8 @@ const Agent = () => {
                 </div>
                 <Switch
                   id="browser-alerts"
-                  checked={browserAlerts}
-                  onCheckedChange={setBrowserAlerts}
+                  checked={agentState.browserAlerts}
+                  onCheckedChange={(checked) => updateAgentState('browserAlerts', checked)}
                 />
               </div>
 
@@ -452,8 +543,8 @@ const Agent = () => {
                 </div>
                 <Switch
                   id="email-alerts"
-                  checked={emailAlerts}
-                  onCheckedChange={setEmailAlerts}
+                  checked={agentState.emailAlerts}
+                  onCheckedChange={(checked) => updateAgentState('emailAlerts', checked)}
                 />
               </div>
 
@@ -481,6 +572,76 @@ const Agent = () => {
                   </Tooltip>
                 </TooltipProvider>
               </div>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-sm">
+            <CardHeader>
+              <CardTitle className="text-xl font-heading">AI Configuration</CardTitle>
+              <CardDescription>
+                Manage how the AI assistant processes your resume
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Tabs defaultValue="model">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="model">AI Model</TabsTrigger>
+                  <TabsTrigger value="parameters">Parameters</TabsTrigger>
+                </TabsList>
+                <TabsContent value="model" className="space-y-4 mt-4">
+                  <div className="space-y-2">
+                    <Label>AI Model</Label>
+                    <Select defaultValue="claude-3.5-sonnet">
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select AI model" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="claude-3.5-sonnet">Claude 3.5 Sonnet</SelectItem>
+                        <SelectItem value="claude-3-haiku">Claude 3 Haiku</SelectItem>
+                        <SelectItem value="claude-3-opus">Claude 3 Opus</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Claude 3.5 Sonnet offers the best balance of performance and cost
+                    </p>
+                  </div>
+                </TabsContent>
+                <TabsContent value="parameters" className="space-y-4 mt-4">
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <Label>Temperature</Label>
+                      <span className="text-xs text-muted-foreground">0.2</span>
+                    </div>
+                    <Slider
+                      defaultValue={[0.2]}
+                      min={0}
+                      max={1}
+                      step={0.1}
+                      disabled
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Lower temperature provides more consistent results
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <div className="flex justify-between">
+                      <Label>Request Rate</Label>
+                      <span className="text-xs text-muted-foreground">20 per minute</span>
+                    </div>
+                    <Slider
+                      defaultValue={[20]}
+                      min={1}
+                      max={50}
+                      step={1}
+                      disabled
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Rate limiting prevents excessive API usage
+                    </p>
+                  </div>
+                </TabsContent>
+              </Tabs>
             </CardContent>
           </Card>
         </div>

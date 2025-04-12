@@ -110,6 +110,49 @@ def job_matches_endpoint():
     result = get_job_matches(user_id, resume_id)
     return jsonify({"success": True, "data": result}), 200
 
+@app.route('/api-status', methods=['GET'])
+def api_status():
+    """
+    Endpoint to check API and dependency status.
+    """
+    status = {
+        "api": "healthy",
+        "claude_api": "unknown",
+        "supabase": "unknown",
+        "firecrawl": "unknown"
+    }
+    
+    try:
+        # Check Claude API
+        from utils.claude_client import ClaudeClient
+        if os.environ.get("ANTHROPIC_API_KEY"):
+            status["claude_api"] = "configured"
+        else:
+            status["claude_api"] = "not configured"
+    except Exception:
+        status["claude_api"] = "error"
+    
+    try:
+        # Check Supabase connection
+        from utils.supabase_client import get_supabase_client
+        supabase = get_supabase_client()
+        test_query = supabase.table('profiles').select('count', count='exact').execute()
+        if test_query:
+            status["supabase"] = "connected"
+    except Exception:
+        status["supabase"] = "error"
+    
+    try:
+        # Check Firecrawl API
+        if os.environ.get("FIRECRAWL_API_KEY"):
+            status["firecrawl"] = "configured"
+        else:
+            status["firecrawl"] = "not configured"
+    except Exception:
+        status["firecrawl"] = "error"
+    
+    return jsonify(status), 200
+
 if __name__ == '__main__':
     # Only for local development, production should use gunicorn
     app.run(debug=os.environ.get('FLASK_DEBUG', 'False') == 'True', host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))

@@ -1,7 +1,7 @@
 
 # Deploying the Python Backend to Google Cloud Functions
 
-This guide provides instructions on how to deploy the Python backend to Google Cloud Functions.
+This guide provides instructions on how to deploy the Python backend to Google Cloud Functions with Claude AI integration.
 
 ## Prerequisites
 
@@ -9,6 +9,14 @@ This guide provides instructions on how to deploy the Python backend to Google C
 2. Initialize the SDK: `gcloud init`
 3. Authenticate with Google Cloud: `gcloud auth login`
 4. Set your project: `gcloud config set project YOUR_PROJECT_ID`
+
+## API Keys and Environment Variables
+
+Ensure you have these API keys ready for the deployment:
+
+1. Supabase credentials (URL and service role key)
+2. Firecrawl API key (for job scraping)
+3. Anthropic API key (for Claude AI model)
 
 ## Deployment Steps
 
@@ -20,6 +28,13 @@ Create a file named `main.py` in the `python_backend` directory:
 import functions_framework
 from flask import Request
 import app
+import nltk
+
+# Download necessary NLTK data
+try:
+    nltk.data.find('tokenizers/punkt')
+except LookupError:
+    nltk.download('punkt')
 
 @functions_framework.http
 def handler(request: Request):
@@ -30,12 +45,15 @@ def handler(request: Request):
     return app.app(request.environ, lambda x, y: [])
 ```
 
-### 2. Update Requirements
+### 2. Update Dependencies
 
-Ensure your `requirements.txt` includes the Functions Framework:
+Ensure your `requirements.txt` includes all necessary packages:
 
 ```
 functions-framework==3.3.0
+anthropic==0.9.0
+langchain==0.0.335
+langchain_community==0.0.16
 ```
 
 ### 3. Create a `.gcloudignore` File
@@ -60,77 +78,50 @@ Deploy the function using the gcloud CLI:
 
 ```bash
 gcloud functions deploy job-backend \
+  --gen2 \
   --runtime python310 \
   --trigger-http \
   --allow-unauthenticated \
   --entry-point handler \
-  --memory 1024MB \
-  --timeout 120s \
+  --memory 512MB \
+  --timeout 300s \
   --region us-central1 \
-  --set-env-vars SUPABASE_URL=your-supabase-url,SUPABASE_ANON_KEY=your-anon-key,SUPABASE_SERVICE_ROLE_KEY=your-service-role-key,JWT_SECRET=your-jwt-secret,FIRECRAWL_API_KEY=your-firecrawl-api-key
+  --set-env-vars SUPABASE_URL=your-supabase-url,SUPABASE_ANON_KEY=your-anon-key,SUPABASE_SERVICE_ROLE_KEY=your-service-role-key,JWT_SECRET=your-jwt-secret,FIRECRAWL_API_KEY=your-firecrawl-api-key,ANTHROPIC_API_KEY=your-anthropic-api-key
 ```
 
-### 5. Set Up API Gateway (Optional)
+Note: We're using `--gen2` for the newer Cloud Functions runtime which supports more memory and longer timeouts, needed for AI processing.
 
-For better control over your API, you can set up API Gateway:
+### 5. Or Deploy to Cloud Run (Recommended for Production)
 
-1. Create an API Gateway configuration:
+For better performance and scalability, deploy to Cloud Run:
+
+1. Create a Dockerfile (already provided in the codebase)
+
+2. Build and push the container:
    ```bash
-   gcloud api-gateway apis create job-api --project=YOUR_PROJECT_ID
+   gcloud builds submit --tag gcr.io/YOUR_PROJECT_ID/job-backend
    ```
 
-2. Define your API using an OpenAPI specification:
-   ```yaml
-   # api-spec.yaml
-   swagger: '2.0'
-   info:
-     title: Job Backend API
-     description: API for job scraping and resume parsing
-     version: 1.0.0
-   schemes:
-     - https
-   produces:
-     - application/json
-   paths:
-     /parse-resume:
-       post:
-         summary: Parse a resume
-         operationId: parseResume
-         x-google-backend:
-           address: https://us-central1-YOUR_PROJECT_ID.cloudfunctions.net/job-backend/parse-resume
-         responses:
-           '200':
-             description: Resume parsed successfully
-     # Define other endpoints similarly
-   ```
-
-3. Deploy the API configuration:
+3. Deploy to Cloud Run:
    ```bash
-   gcloud api-gateway api-configs create job-api-config \
-     --api=job-api \
-     --openapi-spec=api-spec.yaml \
-     --project=YOUR_PROJECT_ID
-   ```
-
-4. Create a gateway:
-   ```bash
-   gcloud api-gateway gateways create job-api-gateway \
-     --api=job-api \
-     --api-config=job-api-config \
-     --location=us-central1 \
-     --project=YOUR_PROJECT_ID
+   gcloud run deploy job-backend \
+     --image gcr.io/YOUR_PROJECT_ID/job-backend \
+     --platform managed \
+     --allow-unauthenticated \
+     --memory 1Gi \
+     --cpu 1 \
+     --region us-central1 \
+     --set-env-vars SUPABASE_URL=your-supabase-url,SUPABASE_ANON_KEY=your-anon-key,SUPABASE_SERVICE_ROLE_KEY=your-service-role-key,JWT_SECRET=your-jwt-secret,FIRECRAWL_API_KEY=your-firecrawl-api-key,ANTHROPIC_API_KEY=your-anthropic-api-key
    ```
 
 ### 6. Update the Frontend
 
 After deployment, update your frontend to use the new API URL:
 
-```javascript
-// In your frontend API client configuration
-const backendUrl = 'https://job-backend-abc123-uc.a.run.app';
-// Or if using API Gateway:
-// const backendUrl = 'https://job-api-gateway-abc123.uc.gateway.dev';
-```
+1. Log in to your application
+2. Navigate to Settings > Python Backend
+3. Enter the Cloud Function or Cloud Run URL
+4. Test the connection to verify it's working
 
 ## Additional Configuration
 
@@ -143,6 +134,13 @@ To enable CORS in Google Cloud Functions:
    import functions_framework
    from flask import Request, make_response
    import app
+   import nltk
+
+   # Download necessary NLTK data
+   try:
+       nltk.data.find('tokenizers/punkt')
+   except LookupError:
+       nltk.download('punkt')
 
    @functions_framework.http
    def handler(request: Request):
@@ -169,6 +167,27 @@ To enable CORS in Google Cloud Functions:
        return (resp.data, resp.status_code, headers)
    ```
 
+### Setting Up Monitoring for Claude API Usage
+
+1. Create a custom metric for Claude API calls:
+   ```bash
+   gcloud logging metrics create claude-api-calls \
+     --description="Claude API calls" \
+     --log-filter="resource.type=cloud_function AND resource.labels.function_name=job-backend AND textPayload:\"Claude API call\""
+   ```
+
+2. Set up an alert policy:
+   ```bash
+   gcloud alpha monitoring policies create \
+     --display-name="Excessive Claude API Usage" \
+     --condition-filter="metric.type=\"logging.googleapis.com/user/claude-api-calls\" resource.type=\"cloud_function\" resource.label.function_name=\"job-backend\"" \
+     --condition-threshold-value=100 \
+     --condition-threshold-comparison=COMPARISON_GT \
+     --condition-aggregations-per-series-aligner=ALIGN_RATE \
+     --condition-aggregations-alignment-period=3600s \
+     --notification-channels=YOUR_NOTIFICATION_CHANNEL_ID
+   ```
+
 ### Setting Up Cloud Scheduler for Regular Job Scraping
 
 To set up scheduled job scraping:
@@ -189,13 +208,14 @@ To set up scheduled job scraping:
 2. Deploy the scheduled function:
    ```bash
    gcloud functions deploy scheduled-job-scraping \
+     --gen2 \
      --runtime python310 \
      --trigger-topic job-scraping-schedule \
      --entry-point scheduled_scraping \
-     --memory 1024MB \
+     --memory 512MB \
      --timeout 300s \
      --region us-central1 \
-     --set-env-vars SUPABASE_URL=your-supabase-url,SUPABASE_ANON_KEY=your-anon-key,SUPABASE_SERVICE_ROLE_KEY=your-service-role-key,FIRECRAWL_API_KEY=your-firecrawl-api-key
+     --set-env-vars SUPABASE_URL=your-supabase-url,SUPABASE_ANON_KEY=your-anon-key,SUPABASE_SERVICE_ROLE_KEY=your-service-role-key,FIRECRAWL_API_KEY=your-firecrawl-api-key,ANTHROPIC_API_KEY=your-anthropic-api-key
    ```
 
 3. Create a Cloud Scheduler job:
@@ -207,26 +227,34 @@ To set up scheduled job scraping:
      --location=us-central1
    ```
 
-### Monitoring and Logging
+### Scaling and Performance Considerations
 
-Set up monitoring and logging for your Cloud Functions:
+When using Claude AI in production, consider:
 
-1. View logs:
+1. Set up autoscaling for Cloud Run:
    ```bash
-   gcloud functions logs read job-backend
+   gcloud run services update job-backend \
+     --min-instances=1 \
+     --max-instances=10 \
+     --concurrency=50
    ```
 
-2. Set up log-based metrics:
+2. Implement caching to reduce API calls (already implemented in the `claude_client.py` file)
+
+3. Set up Cloud CDN if serving processed data frequently:
    ```bash
-   gcloud logging metrics create job-backend-errors \
-     --description="Job backend errors" \
-     --log-filter="resource.type=cloud_function AND resource.labels.function_name=job-backend AND severity>=ERROR"
+   gcloud compute backend-services create job-backend-cdn \
+     --protocol=HTTP \
+     --cache-mode=CACHE_ALL_STATIC \
+     --cdn-policy-cache-mode=CACHE_ALL_STATIC
    ```
 
-3. Create alerts based on metrics:
+4. Use separate service accounts with minimal permissions:
    ```bash
-   gcloud alpha monitoring policies create \
-     --display-name="Job Backend Error Alert" \
-     --conditions="metric.type=logging.googleapis.com/user/job-backend-errors resource.type=cloud_function resource.label.function_name=job-backend threshold.value=1 threshold.comparison=COMPARISON_GT" \
-     --notification-channels=YOUR_NOTIFICATION_CHANNEL_ID
+   gcloud iam service-accounts create job-backend-sa \
+     --display-name="Job Backend Service Account"
+   
+   gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+     --member="serviceAccount:job-backend-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
+     --role="roles/cloudfunctions.invoker"
    ```
