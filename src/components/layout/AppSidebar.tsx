@@ -1,58 +1,15 @@
+
 import { useState, useEffect } from "react";
-import { NavLink } from "react-router-dom";
-import { 
-  Briefcase, 
-  FileText, 
-  Home, 
-  LogOut, 
-  Settings, 
-  User, 
-  Bot, 
-  Bell,
-  ChevronRight,
-  ChevronLeft,
-  Shield
-} from "lucide-react";
+import { Briefcase, FileText, Home, LogOut, Settings, Bot, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { Switch } from "@/components/ui/switch";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/hooks/use-auth";
 import { supabase } from "@/integrations/supabase/client";
-
-interface SidebarLinkProps {
-  to: string;
-  icon: React.ReactNode;
-  text: string;
-  collapsed: boolean;
-}
-
-const SidebarLink = ({ to, icon, text, collapsed }: SidebarLinkProps) => {
-  return (
-    <NavLink
-      to={to}
-      end // This ensures exact path matching
-      className={({ isActive }) =>
-        cn(
-          "flex items-center px-3 py-2 rounded-md transition-colors group",
-          collapsed ? "justify-center" : "gap-3",
-          isActive
-            ? "bg-primary text-primary-foreground"
-            : "hover:bg-muted text-muted-foreground",
-          "text-sm"
-        )
-      }
-    >
-      {icon}
-      {!collapsed && <span>{text}</span>}
-    </NavLink>
-  );
-};
+import SidebarLink from "./sidebar/SidebarLink";
+import SidebarToggle from "./sidebar/SidebarToggle";
+import SidebarUserProfile from "./sidebar/SidebarUserProfile";
+import SidebarFeatureToggles from "./sidebar/SidebarFeatureToggles";
 
 const AppSidebar = () => {
   const [collapsed, setCollapsed] = useState(false);
@@ -60,13 +17,6 @@ const AppSidebar = () => {
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const { user, signOut } = useAuth();
-
-  const displayName = user?.user_metadata?.full_name || user?.email || "User";
-  const userEmail = user?.email || "";
-
-  const handleLogout = async () => {
-    await signOut();
-  };
 
   useEffect(() => {
     const checkAdminStatus = async () => {
@@ -84,6 +34,10 @@ const AppSidebar = () => {
     checkAdminStatus();
   }, [user]);
 
+  const handleLogout = async () => {
+    await signOut();
+  };
+
   return (
     <aside
       className={cn(
@@ -93,238 +47,31 @@ const AppSidebar = () => {
     >
       <div className="flex items-center justify-between p-4 border-b border-sidebar-border">
         {!collapsed && <h1 className="text-xl font-heading font-bold">JobMatch</h1>}
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setCollapsed(!collapsed)}
-          className="ml-auto"
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {collapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
-        </Button>
+        <SidebarToggle collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
       </div>
 
-      <div className="flex items-center p-4 border-b border-sidebar-border">
-        <div className="h-9 w-9 rounded-full bg-primary flex items-center justify-center text-primary-foreground">
-          <User className="h-5 w-5" />
-        </div>
-        {!collapsed && (
-          <div className="ml-3 overflow-hidden">
-            <p className="font-medium truncate">{displayName}</p>
-            <p className="text-xs text-muted-foreground truncate">{userEmail}</p>
-          </div>
-        )}
-      </div>
+      <SidebarUserProfile collapsed={collapsed} />
 
       <nav className="flex-1 p-2 space-y-1">
         <TooltipProvider delayDuration={0}>
-          {collapsed ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div>
-                  <SidebarLink
-                    to="/dashboard"
-                    icon={<Home className="h-5 w-5" />}
-                    text="Dashboard"
-                    collapsed={collapsed}
-                  />
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="right" className="bg-popover">
-                <p>Dashboard</p>
-              </TooltipContent>
-            </Tooltip>
-          ) : (
-            <SidebarLink
-              to="/dashboard"
-              icon={<Home className="h-5 w-5" />}
-              text="Dashboard"
-              collapsed={collapsed}
-            />
-          )}
-
-          {collapsed ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div>
-                  <SidebarLink
-                    to="/dashboard/jobs"
-                    icon={<Briefcase className="h-5 w-5" />}
-                    text="Jobs"
-                    collapsed={collapsed}
-                  />
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="right" className="bg-popover">
-                <p>Jobs</p>
-              </TooltipContent>
-            </Tooltip>
-          ) : (
-            <SidebarLink
-              to="/dashboard/jobs"
-              icon={<Briefcase className="h-5 w-5" />}
-              text="Jobs"
-              collapsed={collapsed}
-            />
-          )}
-
-          {collapsed ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div>
-                  <SidebarLink
-                    to="/dashboard/resumes"
-                    icon={<FileText className="h-5 w-5" />}
-                    text="Resumes"
-                    collapsed={collapsed}
-                  />
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="right" className="bg-popover">
-                <p>Resumes</p>
-              </TooltipContent>
-            </Tooltip>
-          ) : (
-            <SidebarLink
-              to="/dashboard/resumes"
-              icon={<FileText className="h-5 w-5" />}
-              text="Resumes"
-              collapsed={collapsed}
-            />
-          )}
-          
-          {collapsed ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div>
-                  <SidebarLink
-                    to="/dashboard/agent"
-                    icon={<Bot className="h-5 w-5" />}
-                    text="Agent"
-                    collapsed={collapsed}
-                  />
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="right" className="bg-popover">
-                <p>Agent</p>
-              </TooltipContent>
-            </Tooltip>
-          ) : (
-            <SidebarLink
-              to="/dashboard/agent"
-              icon={<Bot className="h-5 w-5" />}
-              text="Agent"
-              collapsed={collapsed}
-            />
-          )}
-
-          {collapsed ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div>
-                  <SidebarLink
-                    to="/dashboard/settings"
-                    icon={<Settings className="h-5 w-5" />}
-                    text="Settings"
-                    collapsed={collapsed}
-                  />
-                </div>
-              </TooltipTrigger>
-              <TooltipContent side="right" className="bg-popover">
-                <p>Settings</p>
-              </TooltipContent>
-            </Tooltip>
-          ) : (
-            <SidebarLink
-              to="/dashboard/settings"
-              icon={<Settings className="h-5 w-5" />}
-              text="Settings"
-              collapsed={collapsed}
-            />
-          )}
-
+          <SidebarLink to="/dashboard" icon={<Home className="h-5 w-5" />} text="Dashboard" collapsed={collapsed} />
+          <SidebarLink to="/dashboard/jobs" icon={<Briefcase className="h-5 w-5" />} text="Jobs" collapsed={collapsed} />
+          <SidebarLink to="/dashboard/resumes" icon={<FileText className="h-5 w-5" />} text="Resumes" collapsed={collapsed} />
+          <SidebarLink to="/dashboard/agent" icon={<Bot className="h-5 w-5" />} text="Agent" collapsed={collapsed} />
+          <SidebarLink to="/dashboard/settings" icon={<Settings className="h-5 w-5" />} text="Settings" collapsed={collapsed} />
           {isAdmin && (
-            collapsed ? (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <SidebarLink
-                      to="/admin"
-                      icon={<Shield className="h-5 w-5" />}
-                      text="Admin"
-                      collapsed={collapsed}
-                    />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="right" className="bg-popover">
-                  <p>Admin Dashboard</p>
-                </TooltipContent>
-              </Tooltip>
-            ) : (
-              <SidebarLink
-                to="/admin"
-                icon={<Shield className="h-5 w-5" />}
-                text="Admin"
-                collapsed={collapsed}
-              />
-            )
+            <SidebarLink to="/admin" icon={<Shield className="h-5 w-5" />} text="Admin" collapsed={collapsed} />
           )}
         </TooltipProvider>
       </nav>
 
-      <div className="p-3 border-t border-sidebar-border space-y-3">
-        <div className={cn(
-          "flex items-center justify-between",
-          collapsed ? "flex-col gap-2" : ""
-        )}>
-          {collapsed ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Bot className="h-5 w-5" />
-              </TooltipTrigger>
-              <TooltipContent side="right" className="bg-popover">
-                <p>AI Agent</p>
-              </TooltipContent>
-            </Tooltip>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Bot className="h-5 w-5" />
-              <span className="text-sm">AI Agent</span>
-            </div>
-          )}
-          <Switch
-            checked={agentEnabled}
-            onCheckedChange={setAgentEnabled}
-            className="scale-75"
-          />
-        </div>
-
-        <div className={cn(
-          "flex items-center justify-between",
-          collapsed ? "flex-col gap-2" : ""
-        )}>
-          {collapsed ? (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Bell className="h-5 w-5" />
-              </TooltipTrigger>
-              <TooltipContent side="right" className="bg-popover">
-                <p>Notifications</p>
-              </TooltipContent>
-            </Tooltip>
-          ) : (
-            <div className="flex items-center gap-2">
-              <Bell className="h-5 w-5" />
-              <span className="text-sm">Notifications</span>
-            </div>
-          )}
-          <Switch
-            checked={notificationsEnabled}
-            onCheckedChange={setNotificationsEnabled}
-            className="scale-75"
-          />
-        </div>
-      </div>
+      <SidebarFeatureToggles
+        collapsed={collapsed}
+        agentEnabled={agentEnabled}
+        notificationsEnabled={notificationsEnabled}
+        onAgentChange={setAgentEnabled}
+        onNotificationsChange={setNotificationsEnabled}
+      />
 
       <div className="p-2 border-t border-sidebar-border">
         <Button 

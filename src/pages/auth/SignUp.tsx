@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { z } from "zod";
@@ -17,6 +16,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 const signUpSchema = z
   .object({
@@ -29,6 +29,7 @@ const signUpSchema = z
       .regex(/[0-9]/, "Password must contain at least one number")
       .regex(/[^A-Za-z0-9]/, "Password must contain at least one special character"),
     confirmPassword: z.string(),
+    requestAdmin: z.boolean().default(false),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Passwords do not match",
@@ -51,6 +52,7 @@ const SignUp = () => {
       email: "",
       password: "",
       confirmPassword: "",
+      requestAdmin: false,
     },
   });
 
@@ -190,6 +192,13 @@ const SignUp = () => {
               </FormItem>
             )}
           />
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-muted-foreground">Request admin access?</span>
+            <Switch
+              checked={form.watch("requestAdmin")}
+              onCheckedChange={(checked) => form.setValue("requestAdmin", checked)}
+            />
+          </div>
           <div className="pt-2">
             <Button
               type="submit"
