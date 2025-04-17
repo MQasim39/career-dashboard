@@ -35,7 +35,7 @@ const VerificationCodeInput = ({
             <InputOTPSlot
               key={index}
               {...slot}
-              index={index} // Adding the missing index prop
+              index={index}
               className="w-10 h-12 text-lg border-border"
               aria-label={`Digit ${index + 1}`}
             />
