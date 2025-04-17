@@ -9,7 +9,7 @@ interface ProtectedRouteProps {
 }
 
 const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
-  const { user, loading } = useAuth();
+  const { user, loading, checkAdminStatus } = useAuth();
   const location = useLocation();
 
   useEffect(() => {
@@ -22,7 +22,12 @@ const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
       isVerified: user?.email_confirmed_at ? true : false,
       metadata: user?.user_metadata
     });
-  }, [user, loading, location]);
+
+    // Check admin status whenever the user or location changes
+    if (user) {
+      checkAdminStatus();
+    }
+  }, [user, loading, location, checkAdminStatus]);
 
   // Show loading indicator while auth state is being determined
   if (loading) {

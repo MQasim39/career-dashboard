@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Session, User } from "@supabase/supabase-js";
@@ -16,6 +17,8 @@ interface AuthContextType {
   verifyEmail: (code: string) => Promise<void>;
   resendVerificationCode: () => Promise<void>;
   loading: boolean;
+  isAdmin: boolean;
+  checkAdminStatus: () => Promise<boolean>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -24,8 +27,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const checkAdminStatus = async () => {
+    if (!user) return false;
+    
+    try {
+      const { data, error } = await supabase.rpc('is_admin', { uid: user.id });
+      if (error) {
+        console.error('Error checking admin status:', error);
+        return false;
+      }
+      
+      setIsAdmin(!!data);
+      return !!data;
+    } catch (error) {
+      console.error('Error checking admin status:', error);
+      return false;
+    }
+  };
+
+  const handleRedirection = async (userObj: User | null) => {
+    if (!userObj) return;
+    
+    if (!userObj.email_confirmed_at) {
+      navigate("/auth/verify-email");
+      return;
+    }
+    
+    // Check if user is admin before redirecting
+    const adminStatus = await checkAdminStatus();
+    if (adminStatus) {
+      navigate("/admin");
+    } else {
+      navigate("/dashboard");
+    }
+  };
 
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
@@ -35,18 +74,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null);
         setLoading(false);
         
-        if (event === "SIGNED_IN") {
-          if (session?.user?.email_confirmed_at) {
-            navigate("/dashboard");
-          } else {
-            navigate("/auth/verify-email");
+        if (event === "SIGNED_IN" || event === "USER_UPDATED") {
+          // Don't redirect immediately, defer to handle properly
+          if (session?.user) {
+            setTimeout(() => {
+              handleRedirection(session.user);
+            }, 0);
           }
         } else if (event === "SIGNED_OUT") {
+          setIsAdmin(false);
           navigate("/");
-        } else if (event === "USER_UPDATED") {
-          if (session?.user?.email_confirmed_at) {
-            navigate("/dashboard");
-          }
         }
       }
     );
@@ -55,10 +92,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.log("Initial session check:", session?.user?.email);
       setSession(session);
       setUser(session?.user ?? null);
-      setLoading(false);
       
-      if (session?.user && !session.user.email_confirmed_at) {
-        navigate("/auth/verify-email");
+      if (session?.user) {
+        checkAdminStatus().then(() => {
+          handleRedirection(session.user);
+          setLoading(false);
+        });
+      } else {
+        setLoading(false);
       }
     });
 
@@ -329,6 +370,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         verifyEmail,
         resendVerificationCode,
         loading,
+        isAdmin,
+        checkAdminStatus,
       }}
     >
       {children}

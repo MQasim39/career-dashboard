@@ -1,40 +1,42 @@
 
-import { Navigate } from "react-router-dom";
+import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/hooks/use-auth";
-import { supabase } from "@/integrations/supabase/client";
 import { useEffect, useState } from "react";
+import { Loader2 } from "lucide-react";
 
 interface AdminProtectedRouteProps {
   children: React.ReactNode;
 }
 
 const AdminProtectedRoute = ({ children }: AdminProtectedRouteProps) => {
-  const { user, session } = useAuth();
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const { user, session, isAdmin, checkAdminStatus, loading } = useAuth();
+  const [isChecking, setIsChecking] = useState(true);
+  const location = useLocation();
 
   useEffect(() => {
-    const checkAdminStatus = async () => {
+    const verifyAdminStatus = async () => {
       if (!user) return;
       
-      const { data, error } = await supabase.rpc('is_admin', { uid: user.id });
-      if (error) {
-        console.error('Error checking admin status:', error);
-        setIsAdmin(false);
-        return;
-      }
-      
-      setIsAdmin(data);
+      await checkAdminStatus();
+      setIsChecking(false);
     };
 
-    checkAdminStatus();
-  }, [user]);
+    verifyAdminStatus();
+  }, [user, checkAdminStatus]);
 
-  if (!user || !session) {
-    return <Navigate to="/auth/login" replace />;
+  if (loading || isChecking) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center">
+        <div className="flex flex-col items-center justify-center space-y-4">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          <p className="text-lg text-muted-foreground">Verifying admin access...</p>
+        </div>
+      </div>
+    );
   }
 
-  if (isAdmin === null) {
-    return <div>Loading...</div>;
+  if (!user || !session) {
+    return <Navigate to="/auth/login" state={{ from: location }} replace />;
   }
 
   if (!isAdmin) {
