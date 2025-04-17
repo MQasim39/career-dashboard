@@ -9,6 +9,36 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      admin_audit_log: {
+        Row: {
+          action: string
+          admin_id: string
+          created_at: string | null
+          details: Json | null
+          id: string
+          target_id: string | null
+          target_type: string
+        }
+        Insert: {
+          action: string
+          admin_id: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          target_id?: string | null
+          target_type: string
+        }
+        Update: {
+          action?: string
+          admin_id?: string
+          created_at?: string | null
+          details?: Json | null
+          id?: string
+          target_id?: string | null
+          target_type?: string
+        }
+        Relationships: []
+      }
       companies: {
         Row: {
           cover_image_url: string | null
@@ -312,6 +342,7 @@ export type Database = {
           email: string
           full_name: string | null
           id: string
+          role: Database["public"]["Enums"]["user_role"]
           updated_at: string
           user_type: Database["public"]["Enums"]["user_type"] | null
           username: string | null
@@ -321,6 +352,7 @@ export type Database = {
           email: string
           full_name?: string | null
           id: string
+          role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
           user_type?: Database["public"]["Enums"]["user_type"] | null
           username?: string | null
@@ -330,6 +362,7 @@ export type Database = {
           email?: string
           full_name?: string | null
           id?: string
+          role?: Database["public"]["Enums"]["user_role"]
           updated_at?: string
           user_type?: Database["public"]["Enums"]["user_type"] | null
           username?: string | null
@@ -627,9 +660,13 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_admin: {
+        Args: { uid: string }
+        Returns: boolean
+      }
     }
     Enums: {
+      user_role: "user" | "admin"
       user_type: "candidate" | "employer"
     }
     CompositeTypes: {
@@ -746,6 +783,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      user_role: ["user", "admin"],
       user_type: ["candidate", "employer"],
     },
   },

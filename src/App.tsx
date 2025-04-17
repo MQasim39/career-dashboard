@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -11,6 +10,7 @@ import { JobsProvider } from "@/hooks/use-jobs";
 import MainLayout from "@/components/layout/MainLayout";
 import AuthLayout from "@/components/auth/AuthLayout";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
+import AdminProtectedRoute from "@/components/auth/AdminProtectedRoute";
 import Dashboard from "@/pages/Dashboard";
 import Jobs from "@/pages/Jobs";
 import Resumes from "@/pages/Resumes";
@@ -71,6 +71,15 @@ const App = () => (
                       <Route path="agent" element={<Agent />} />
                       <Route path="reports" element={<Reports />} />
                       <Route path="settings" element={<Settings />} />
+                    </Route>
+
+                    {/* Admin routes */}
+                    <Route path="/admin" element={
+                      <AdminProtectedRoute>
+                        <MainLayout />
+                      </AdminProtectedRoute>
+                    }>
+                      <Route index element={<AdminDashboard />} />
                     </Route>
                     
                     {/* Catch-all route */}
