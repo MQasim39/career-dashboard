@@ -10,7 +10,7 @@ import { JobsProvider } from "@/hooks/use-jobs";
 import MainLayout from "@/components/layout/MainLayout";
 import AuthLayout from "@/components/auth/AuthLayout";
 import ProtectedRoute from "@/components/auth/ProtectedRoute";
-import AdminProtectedRoute from "@/components/auth/AdminProtectedRoute";
+import AdminProtectedRoute from "@/components/admin/AdminProtectedRoute";
 import Dashboard from "@/pages/Dashboard";
 import Jobs from "@/pages/Jobs";
 import Resumes from "@/pages/Resumes";
@@ -25,10 +25,10 @@ import UpdatePassword from "@/pages/auth/UpdatePassword";
 import VerifyEmail from "@/pages/auth/VerifyEmail";
 import AuthCallback from "@/pages/auth/AuthCallback";
 import Index from "@/pages/Index";
+import AdminDashboard from "@/pages/admin/Dashboard";
 
 const queryClient = new QueryClient();
 
-// Add font imports to the document head
 const fontStyles = document.createElement('style');
 fontStyles.innerHTML = `
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700&display=swap');
@@ -46,10 +46,7 @@ const App = () => (
                 <TooltipProvider>
                   <Toaster />
                   <Routes>
-                    {/* Landing page route */}
                     <Route path="/" element={<Index />} />
-                    
-                    {/* Auth routes */}
                     <Route path="/auth" element={<AuthLayout />}>
                       <Route path="login" element={<Login />} />
                       <Route path="signup" element={<SignUp />} />
@@ -58,8 +55,6 @@ const App = () => (
                       <Route path="verify-email" element={<VerifyEmail />} />
                       <Route path="callback" element={<AuthCallback />} />
                     </Route>
-                    
-                    {/* Protected routes */}
                     <Route path="/dashboard" element={
                       <ProtectedRoute>
                         <MainLayout />
@@ -72,8 +67,6 @@ const App = () => (
                       <Route path="reports" element={<Reports />} />
                       <Route path="settings" element={<Settings />} />
                     </Route>
-
-                    {/* Admin routes */}
                     <Route path="/admin" element={
                       <AdminProtectedRoute>
                         <MainLayout />
@@ -81,8 +74,6 @@ const App = () => (
                     }>
                       <Route index element={<AdminDashboard />} />
                     </Route>
-                    
-                    {/* Catch-all route */}
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </TooltipProvider>

@@ -49,8 +49,12 @@ export default function UsersList() {
 
   const handleDeleteUser = async (userId: string) => {
     try {
+      // Instead of using RPC, we'll delete the user directly
+      // This change is needed because the 'delete_user' RPC function doesn't exist yet
       const { error } = await supabase
-        .rpc('delete_user', { user_id: userId });
+        .from('profiles')
+        .delete()
+        .eq('id', userId);
 
       if (error) throw error;
 
