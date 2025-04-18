@@ -1,10 +1,52 @@
 
+import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import UsersList from "@/components/admin/UsersList";
 import ScraperConfigsList from "@/components/admin/ScraperConfigsList";
+import { supabase } from "@/integrations/supabase/client";
+import { Loader2 } from "lucide-react";
 
 export default function AdminDashboard() {
+  const [totalUsers, setTotalUsers] = useState<number | null>(null);
+  const [activeScrapers, setActiveScrapers] = useState<number | null>(null);
+  const [activeAgents, setActiveAgents] = useState<number | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        // Fetch total users count
+        const { count: usersCount, error: usersError } = await supabase
+          .from('profiles')
+          .select('*', { count: 'exact', head: true });
+
+        if (usersError) throw usersError;
+        setTotalUsers(usersCount);
+
+        // Fetch active scrapers count
+        const { count: scrapersCount, error: scrapersError } = await supabase
+          .from('scraper_configurations')
+          .select('*', { count: 'exact', head: true })
+          .eq('is_active', true);
+
+        if (scrapersError) throw scrapersError;
+        setActiveScrapers(scrapersCount);
+
+        // For active agents, we can use a placeholder or fetch from a relevant table
+        // This is a placeholder since the actual agents table may not exist yet
+        setActiveAgents(0);
+
+      } catch (error) {
+        console.error("Error fetching dashboard data:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchDashboardData();
+  }, []);
+
   return (
     <div className="container mx-auto py-8">
       <h1 className="text-3xl font-bold mb-8">Admin Dashboard</h1>
@@ -15,7 +57,11 @@ export default function AdminDashboard() {
             <CardTitle>Total Users</CardTitle>
           </CardHeader>
           <CardContent className="text-2xl font-bold">
-            Loading...
+            {loading ? (
+              <Loader2 className="h-5 w-5 animate-spin inline mr-2" />
+            ) : (
+              totalUsers ?? "N/A"
+            )}
           </CardContent>
         </Card>
 
@@ -24,7 +70,11 @@ export default function AdminDashboard() {
             <CardTitle>Active Scrapers</CardTitle>
           </CardHeader>
           <CardContent className="text-2xl font-bold">
-            Loading...
+            {loading ? (
+              <Loader2 className="h-5 w-5 animate-spin inline mr-2" />
+            ) : (
+              activeScrapers ?? "N/A"
+            )}
           </CardContent>
         </Card>
 
@@ -33,7 +83,11 @@ export default function AdminDashboard() {
             <CardTitle>Active Agents</CardTitle>
           </CardHeader>
           <CardContent className="text-2xl font-bold">
-            Loading...
+            {loading ? (
+              <Loader2 className="h-5 w-5 animate-spin inline mr-2" />
+            ) : (
+              activeAgents ?? "N/A"
+            )}
           </CardContent>
         </Card>
       </div>
