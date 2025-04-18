@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Session, User } from "@supabase/supabase-js";
@@ -27,6 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [initialAuthCheckDone, setInitialAuthCheckDone] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -51,13 +53,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const handleRedirection = async (userObj: User | null) => {
+  // Only redirect on sign-in or when email verification is required
+  const handleRedirection = async (userObj: User | null, forceRedirect = false) => {
     if (!userObj) return;
     
-    console.log('Handling redirection for user:', userObj.email);
+    console.log('Handling redirection for user:', userObj.email, 'Force redirect:', forceRedirect);
     
+    // If email not confirmed, always redirect to verification
     if (!userObj.email_confirmed_at) {
       navigate("/auth/verify-email");
+      return;
+    }
+    
+    // Only continue with redirection if we're forcing it (e.g., after sign-in)
+    if (!forceRedirect) {
+      console.log('Skipping redirection as not forced');
       return;
     }
     
@@ -79,17 +89,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         console.log("Auth state changed:", event, session?.user?.email);
         setSession(session);
         setUser(session?.user ?? null);
-        setLoading(false);
         
         if (event === "SIGNED_IN" || event === "USER_UPDATED") {
+          // Don't redirect immediately, defer to handle properly
           if (session?.user) {
             setTimeout(() => {
-              handleRedirection(session.user);
+              // Only force redirect on fresh sign-in
+              handleRedirection(session.user, event === "SIGNED_IN");
             }, 0);
           }
         } else if (event === "SIGNED_OUT") {
           setIsAdmin(false);
           navigate("/");
+        }
+        
+        if (!initialAuthCheckDone) {
+          setInitialAuthCheckDone(true);
+          setLoading(false);
         }
       }
     );
@@ -101,10 +117,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       if (session?.user) {
         checkAdminStatus().then(() => {
-          handleRedirection(session.user);
+          // Don't force redirect on initial load - user might be on a specific page already
+          setInitialAuthCheckDone(true);
           setLoading(false);
         });
       } else {
+        setInitialAuthCheckDone(true);
         setLoading(false);
       }
     });
@@ -201,6 +219,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         description: "Your email has been successfully verified.",
       });
       
+      // Check admin status after verification and redirect appropriately
       const isUserAdmin = await checkAdminStatus();
       if (isUserAdmin) {
         navigate("/admin");
