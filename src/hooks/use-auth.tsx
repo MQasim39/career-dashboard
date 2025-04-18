@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Session, User } from "@supabase/supabase-js";
@@ -9,7 +8,7 @@ interface AuthContextType {
   session: Session | null;
   user: User | null;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, name: string) => Promise<void>;
+  signUp: (email: string, password: string, name: string, requestAdmin: boolean = false) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   updatePassword: (password: string) => Promise<void>;
@@ -131,7 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signUp = async (email: string, password: string, name: string) => {
+  const signUp = async (email: string, password: string, name: string, requestAdmin: boolean = false) => {
     try {
       setLoading(true);
       const { error, data } = await supabase.auth.signUp({ 
@@ -140,14 +139,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         options: {
           data: {
             full_name: name,
+            requestAdmin
           },
           emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       });
       
-      if (error) {
-        throw error;
-      }
+      if (error) throw error;
       
       toast({
         title: "Verification required",
