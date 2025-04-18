@@ -5,6 +5,7 @@ import { Separator } from "@/components/ui/separator";
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
+import { ParsedResume } from "@/hooks/use-resume-parsing";
 
 interface UserDetailsProps {
   user: {
@@ -25,13 +26,6 @@ interface Resume {
   filename: string;
   uploaded_at: string;
   file_size: number;
-}
-
-interface ParsedResume {
-  id: string;
-  skills: string[];
-  experience: any[];
-  education: any[];
 }
 
 export default function UserDetailsDialog({ user, open, onClose }: UserDetailsProps) {
@@ -61,7 +55,26 @@ export default function UserDetailsDialog({ user, open, onClose }: UserDetailsPr
           .eq('user_id', user.id);
           
         if (parsedError) throw parsedError;
-        setParsedResumes(parsedData || []);
+        
+        // Convert the JSON data into the expected format
+        const formattedParsedResumes = (parsedData || []).map(item => ({
+          id: item.id,
+          skills: Array.isArray(item.skills) ? item.skills : [],
+          // Ensure experience is always an array
+          experience: Array.isArray(item.experience) ? item.experience : [],
+          // Ensure education is always an array
+          education: Array.isArray(item.education) ? item.education : [],
+          // Add other required fields from ParsedResume type with defaults
+          personal_info: {
+            name: '',
+            email: '',
+            phone: '',
+            location: ''
+          },
+          full_text: ''
+        }));
+        
+        setParsedResumes(formattedParsedResumes);
         
       } catch (error) {
         console.error("Error fetching user details:", error);
