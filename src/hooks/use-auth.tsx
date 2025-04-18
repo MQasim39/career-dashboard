@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Session, User } from "@supabase/supabase-js";
@@ -9,7 +8,6 @@ interface AuthContextType {
   session: Session | null;
   user: User | null;
   signIn: (email: string, password: string) => Promise<void>;
-  // Remove the default parameter from the interface definition
   signUp: (email: string, password: string, name: string, requestAdmin?: boolean) => Promise<void>;
   signOut: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -36,12 +34,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!user) return false;
     
     try {
+      console.log('Checking admin status for user:', user.id);
       const { data, error } = await supabase.rpc('is_admin', { uid: user.id });
+      
       if (error) {
         console.error('Error checking admin status:', error);
         return false;
       }
       
+      console.log('Admin status check result:', data);
       setIsAdmin(!!data);
       return !!data;
     } catch (error) {
@@ -53,16 +54,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const handleRedirection = async (userObj: User | null) => {
     if (!userObj) return;
     
+    console.log('Handling redirection for user:', userObj.email);
+    
     if (!userObj.email_confirmed_at) {
       navigate("/auth/verify-email");
       return;
     }
     
-    // Check if user is admin before redirecting
     const adminStatus = await checkAdminStatus();
+    console.log('User admin status:', adminStatus);
+    
     if (adminStatus) {
+      console.log('Redirecting to admin dashboard');
       navigate("/admin");
     } else {
+      console.log('Redirecting to user dashboard');
       navigate("/dashboard");
     }
   };
@@ -76,7 +82,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setLoading(false);
         
         if (event === "SIGNED_IN" || event === "USER_UPDATED") {
-          // Don't redirect immediately, defer to handle properly
           if (session?.user) {
             setTimeout(() => {
               handleRedirection(session.user);
@@ -135,6 +140,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const signUp = async (email: string, password: string, name: string, requestAdmin: boolean = false) => {
     try {
       setLoading(true);
+      console.log('Signing up with admin request:', requestAdmin);
+      
       const { error, data } = await supabase.auth.signUp({ 
         email, 
         password,
@@ -148,6 +155,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       });
       
       if (error) throw error;
+      
+      console.log('Signup successful, metadata:', data?.user?.user_metadata);
       
       toast({
         title: "Verification required",
@@ -192,7 +201,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         description: "Your email has been successfully verified.",
       });
       
-      navigate("/dashboard");
+      const isUserAdmin = await checkAdminStatus();
+      if (isUserAdmin) {
+        navigate("/admin");
+      } else {
+        navigate("/dashboard");
+      }
     } catch (error: any) {
       toast({
         title: "Verification failed",

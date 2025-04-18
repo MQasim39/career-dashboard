@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { z } from "zod";
@@ -60,7 +61,8 @@ const SignUp = () => {
     setSignupError(null);
     try {
       setIsSubmitting(true);
-      await signUp(data.email, data.password, data.name);
+      // FIXED: Explicitly pass the requestAdmin value to signUp
+      await signUp(data.email, data.password, data.name, data.requestAdmin);
       // No need to navigate here as the signUp function handles it
     } catch (error: any) {
       console.error("Sign up error:", error);

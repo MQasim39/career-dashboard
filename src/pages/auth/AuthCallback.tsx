@@ -18,14 +18,36 @@ const AuthCallback = () => {
         return;
       }
 
-      // If user exists and is verified, go to dashboard
-      if (data.session?.user?.email_confirmed_at) {
-        navigate("/dashboard");
-      } 
-      // If user exists but isn't verified, go to verification page
-      else if (data.session?.user) {
-        // Make sure to navigate to verification page if email is not confirmed
-        navigate("/auth/verify-email");
+      // Check admin status
+      if (data.session?.user) {
+        try {
+          const { data: isAdminData, error: isAdminError } = await supabase.rpc('is_admin', { 
+            uid: data.session.user.id 
+          });
+          
+          console.log("Admin check result:", isAdminData);
+          
+          // If user exists and is verified
+          if (data.session?.user?.email_confirmed_at) {
+            // Redirect based on admin status
+            if (isAdminData) {
+              navigate("/admin");
+            } else {
+              navigate("/dashboard");
+            }
+          } 
+          // If user exists but isn't verified
+          else {
+            navigate("/auth/verify-email");
+          }
+        } catch (error) {
+          console.error("Admin check error:", error);
+          if (data.session?.user?.email_confirmed_at) {
+            navigate("/dashboard");
+          } else {
+            navigate("/auth/verify-email");
+          }
+        }
       } 
       // No session, go to login
       else {
