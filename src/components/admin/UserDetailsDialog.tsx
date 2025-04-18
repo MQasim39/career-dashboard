@@ -57,22 +57,40 @@ export default function UserDetailsDialog({ user, open, onClose }: UserDetailsPr
         if (parsedError) throw parsedError;
         
         // Convert the JSON data into the expected format
-        const formattedParsedResumes = (parsedData || []).map(item => ({
-          id: item.id,
-          skills: Array.isArray(item.skills) ? item.skills : [],
-          // Ensure experience is always an array
-          experience: Array.isArray(item.experience) ? item.experience : [],
-          // Ensure education is always an array
-          education: Array.isArray(item.education) ? item.education : [],
-          // Add other required fields from ParsedResume type with defaults
-          personal_info: {
-            name: '',
-            email: '',
-            phone: '',
-            location: ''
-          },
-          full_text: ''
-        }));
+        const formattedParsedResumes = (parsedData || []).map(item => {
+          // Map experience array to the correct shape
+          const mappedExperience = Array.isArray(item.experience) 
+            ? item.experience.map((exp: any) => ({
+                title: exp.title || '',
+                company: exp.company || '',
+                dates: exp.dates || '',
+                description: exp.description || ''
+              }))
+            : [];
+          
+          // Map education array to the correct shape
+          const mappedEducation = Array.isArray(item.education)
+            ? item.education.map((edu: any) => ({
+                degree: edu.degree || '',
+                school: edu.school || '',
+                dates: edu.dates || ''
+              }))
+            : [];
+            
+          return {
+            id: item.id,
+            skills: Array.isArray(item.skills) ? item.skills : [],
+            experience: mappedExperience,
+            education: mappedEducation,
+            personal_info: {
+              name: '',
+              email: '',
+              phone: '',
+              location: ''
+            },
+            full_text: ''
+          } as ParsedResume;
+        });
         
         setParsedResumes(formattedParsedResumes);
         
