@@ -9,9 +9,10 @@ from handlers.job_scraper import scrape_jobs
 from handlers.agent import activate_agent, get_job_matches
 from utils.auth import validate_token
 from utils.error_handler import handle_errors, AppError
-
-# Load environment variables
-load_dotenv()
+from agents.company_job_crew import CompanyJobCrew # Import the crew
+from werkzeug.utils import secure_filename
+import tempfile
+import uuid
 
 # Configure logging
 logging.basicConfig(
@@ -153,6 +154,81 @@ def api_status():
     
     return jsonify(status), 200
 
+# --- Add this new endpoint ---
+@app.route('/find-company-jobs', methods=['POST'])
+@validate_token # Assuming you want this protected
+@handle_errors
+def find_company_jobs_endpoint():
+    """
+    Endpoint to find jobs at a specific company and match them to an uploaded resume.
+    Expects form data with 'companyName' and 'resumeFile'.
+    """
+    logger.info("Received request for /find-company-jobs")
+
+    company_name = request.form.get('companyName')
+    if not company_name:
+        raise AppError("Missing companyName", 400)
+
+    if 'resumeFile' not in request.files:
+        raise AppError("No resumeFile provided", 400)
+
+    resume_file = request.files['resumeFile']
+    if resume_file.filename == '':
+        raise AppError("No selected resume file", 400)
+
+    # Securely save the uploaded resume temporarily
+    # Consider a more robust storage solution for production (e.g., S3, Supabase Storage)
+    filename = secure_filename(f"{uuid.uuid4()}_{resume_file.filename}")
+    temp_dir = tempfile.gettempdir()
+    temp_resume_path = os.path.join(temp_dir, filename)
+
+    try:
+        resume_file.save(temp_resume_path)
+        logger.info(f"Temporarily saved resume to {temp_resume_path}")
+
+        # Ensure API keys are loaded (dotenv should handle this, but double-check)
+        if not os.getenv("ANTHROPIC_API_KEY") or not os.getenv("FIRECRAWL_API_KEY") or not os.getenv("SERPER_API_KEY"):
+             logger.error("Missing required API keys (Anthropic, Firecrawl, Serper)")
+             raise AppError("Server configuration error: Missing API keys", 500)
+
+        # Initialize and run the crew
+        job_crew = CompanyJobCrew(resume_path=temp_resume_path)
+        crew_result = job_crew.crew().kickoff(inputs={'company_name': company_name})
+
+        logger.info(f"Crew finished execution for company: {company_name}")
+        # The final result is typically the output of the last task
+        return jsonify({"success": True, "data": {"matches": crew_result}}), 200
+
+    except Exception as e:
+        logger.exception(f"Error processing company job search for {company_name}")
+        # Use the AppError structure if it's a known error type, otherwise raise generic
+        if isinstance(e, AppError):
+            raise e
+        else:
+            raise AppError(f"An internal error occurred: {str(e)}", 500)
+    finally:
+        # Clean up the temporary file
+        if os.path.exists(temp_resume_path):
+            try:
+                os.remove(temp_resume_path)
+                logger.info(f"Removed temporary resume file: {temp_resume_path}")
+            except Exception as remove_err:
+                logger.error(f"Error removing temporary file {temp_resume_path}: {remove_err}")
+
+
 if __name__ == '__main__':
-    # Only for local development, production should use gunicorn
+    # Ensure config directory and files exist before running
+    config_dir = os.path.join(os.path.dirname(__file__), 'config')
+    if not os.path.exists(config_dir):
+        os.makedirs(config_dir)
+        print(f"Created directory: {config_dir}")
+        print("Please create 'agents.yaml' and 'tasks.yaml' inside it.")
+    elif not os.path.exists(os.path.join(config_dir, 'agents.yaml')) or \
+         not os.path.exists(os.path.join(config_dir, 'tasks.yaml')):
+        print("Error: 'agents.yaml' or 'tasks.yaml' not found in the 'config' directory.")
+        # Optionally exit or prevent app run if configs are missing
+        # exit(1)
+
+    # Load environment variables
+    load_dotenv()
     app.run(debug=os.environ.get('FLASK_DEBUG', 'False') == 'True', host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
