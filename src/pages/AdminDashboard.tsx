@@ -19,14 +19,14 @@ interface UserProfile {
   id: string;
   email?: string;
   // Add other profile fields if you have a separate profiles table
-  status?: string; // e.g., 'active', 'banned'
-  role?: string;
+  role?: string; // e.g., 'user', 'admin'
   full_name?: string;
 }
 
 interface UserAnalytics extends UserProfile {
   resume_count: number;
   active_resume_id?: string; // Assuming you have a way to track this
+  banned?: boolean; // Track if user is banned in our UI state
 }
 
 function AdminDashboard() {
@@ -82,7 +82,8 @@ function AdminDashboard() {
           return {
             ...profile,
             resume_count: resumeCount || 0,
-            active_resume_id: activeResume?.id || undefined
+            active_resume_id: activeResume?.id || undefined,
+            banned: profile.role === 'banned' // Track if user is banned based on role
           };
         }));
 
@@ -102,16 +103,16 @@ function AdminDashboard() {
   const handleBanUser = async (userId: string) => {
     if (!window.confirm(`Are you sure you want to ban user ${userId}?`)) return;
     try {
-      // Direct update to profiles table
+      // Update the role field instead of a non-existent status field
       const { error } = await supabase
         .from('profiles')
-        .update({ status: 'banned' })
+        .update({ role: 'banned' })
         .eq('id', userId);
         
       if (error) throw error;
       
       // Update local state
-      setAnalytics(prev => prev.map(u => u.id === userId ? { ...u, status: 'banned' } : u));
+      setAnalytics(prev => prev.map(u => u.id === userId ? { ...u, banned: true, role: 'banned' } : u));
       
       toast({
         title: "User banned successfully",
@@ -183,11 +184,11 @@ function AdminDashboard() {
                 <TableCell className="font-mono text-sm">{user.id}</TableCell>
                 <TableCell>{user.email || 'N/A'}</TableCell>
                 <TableCell>{user.full_name || 'N/A'}</TableCell>
-                <TableCell>{user.status || 'active'}</TableCell>
+                <TableCell>{user.banned ? 'banned' : (user.role || 'active')}</TableCell>
                 <TableCell>{user.resume_count}</TableCell>
                 <TableCell className="font-mono text-sm">{user.active_resume_id || 'None'}</TableCell>
                 <TableCell>
-                  {user.status !== 'banned' && (
+                  {!user.banned && (
                     <Button 
                       onClick={() => handleBanUser(user.id)} 
                       disabled={user.id === user?.id}
