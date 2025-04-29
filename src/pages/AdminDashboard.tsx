@@ -3,6 +3,16 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../integrations/supabase/client'; // Adjust path
 import { User } from '@supabase/supabase-js';
 import { useAuth } from '@/hooks/use-auth';
+import { 
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { useToast } from '@/hooks/use-toast';
 
 // Define interfaces for the data you expect
 interface UserProfile {
@@ -10,6 +20,8 @@ interface UserProfile {
   email?: string;
   // Add other profile fields if you have a separate profiles table
   status?: string; // e.g., 'active', 'banned'
+  role?: string;
+  full_name?: string;
 }
 
 interface UserAnalytics extends UserProfile {
@@ -22,6 +34,7 @@ function AdminDashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { user, isAdmin } = useAuth();
+  const { toast } = useToast();
 
   useEffect(() => {
     // Check if the logged-in user is admin
@@ -32,7 +45,6 @@ function AdminDashboard() {
         // Redirect non-admins away (or show an error)
         setError("Access Denied. You are not authorized to view this page.");
         setLoading(false);
-        // Optionally redirect: navigate('/dashboard');
       }
     };
 
@@ -40,27 +52,41 @@ function AdminDashboard() {
       setLoading(true);
       setError(null);
       try {
-        // --- Fetching Data ---
-        // This likely requires a custom Supabase Function (RPC) or View
-        // for security and efficiency.
+        // Fetch user profiles
+        const { data: profilesData, error: profilesError } = await supabase
+          .from('profiles')
+          .select('*');
 
-        // Example using a hypothetical RPC function 'get_user_analytics'
-        const { data, error: rpcError } = await supabase.rpc('get_user_analytics');
+        if (profilesError) throw profilesError;
 
-        if (rpcError) throw rpcError;
+        // For each profile, fetch resume counts
+        const enhancedProfiles = await Promise.all((profilesData || []).map(async (profile) => {
+          // Count resumes for this user
+          const { count: resumeCount, error: resumeError } = await supabase
+            .from('resumes')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', profile.id);
 
-        // You might need to fetch users and resume counts separately
-        // if you don't have a dedicated function/view.
-        // Example:
-        // const { data: users, error: usersError } = await supabase.from('profiles').select('*'); // Or auth.users if no profiles table
-        // const { data: resumes, error: resumesError } = await supabase.from('resumes').select('user_id, id, is_active'); // Assuming 'resumes' table
-        // Then process and combine this data in the frontend (less ideal)
+          if (resumeError) throw resumeError;
 
-        if (data) {
-          setAnalytics(data as UserAnalytics[]); // Adjust based on actual return type
-        } else {
-          setAnalytics([]);
-        }
+          // Get active resume if any
+          const { data: activeResume, error: activeResumeError } = await supabase
+            .from('resumes')
+            .select('id')
+            .eq('user_id', profile.id)
+            .eq('is_selected', true)
+            .maybeSingle();
+
+          if (activeResumeError) throw activeResumeError;
+
+          return {
+            ...profile,
+            resume_count: resumeCount || 0,
+            active_resume_id: activeResume?.id || undefined
+          };
+        }));
+
+        setAnalytics(enhancedProfiles);
       } catch (err: any) {
         console.error("Error fetching admin analytics:", err);
         setError("Failed to load user analytics. " + err.message);
@@ -76,78 +102,114 @@ function AdminDashboard() {
   const handleBanUser = async (userId: string) => {
     if (!window.confirm(`Are you sure you want to ban user ${userId}?`)) return;
     try {
-      // Example using RPC:
-      const { error } = await supabase.rpc('ban_user', { target_user_id: userId });
-      // Or direct update if RLS allows:
-      // const { error } = await supabase.from('profiles').update({ status: 'banned' }).eq('id', userId);
+      // Direct update to profiles table
+      const { error } = await supabase
+        .from('profiles')
+        .update({ status: 'banned' })
+        .eq('id', userId);
+        
       if (error) throw error;
-      // Refresh data or update state locally
+      
+      // Update local state
       setAnalytics(prev => prev.map(u => u.id === userId ? { ...u, status: 'banned' } : u));
-      alert('User banned successfully.');
+      
+      toast({
+        title: "User banned successfully",
+        description: "The user has been banned from the platform.",
+      });
     } catch (err: any) {
-      alert(`Failed to ban user: ${err.message}`);
+      toast({
+        title: "Failed to ban user",
+        description: err.message,
+        variant: "destructive",
+      });
     }
   };
 
   const handleDeleteUser = async (userId: string) => {
     if (!window.confirm(`Are you sure you want to DELETE user ${userId}? This is irreversible.`)) return;
     try {
-      // IMPORTANT: Deleting from auth.users requires service_role key or specific setup.
-      // Usually done via a Supabase Function running with elevated privileges.
-      const { error } = await supabase.rpc('delete_user_data', { target_user_id: userId });
+      // For deletion, we'll just remove the profile
+      // Note: In a production app, you'd want this to trigger cascading deletes
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', userId);
+        
       if (error) throw error;
-      // Refresh data or update state locally
+      
+      // Remove from local state
       setAnalytics(prev => prev.filter(u => u.id !== userId));
-      alert('User deleted successfully.');
+      
+      toast({
+        title: "User deleted successfully",
+        description: "The user has been removed from the platform.",
+      });
     } catch (err: any) {
-      alert(`Failed to delete user: ${err.message}`);
+      toast({
+        title: "Failed to delete user",
+        description: err.message,
+        variant: "destructive",
+      });
     }
   };
 
-
-  if (loading) return <div>Loading admin data...</div>;
-  if (error) return <div style={{ color: 'red' }}>Error: {error}</div>;
-  if (!user || !isAdmin) return <div>Unauthorized access</div>; // Extra security check
+  if (loading) return <div className="p-8 flex justify-center items-center">Loading admin data...</div>;
+  if (error) return <div className="p-8 text-red-500">{error}</div>;
+  if (!user || !isAdmin) return <div className="p-8">Unauthorized access</div>; // Extra security check
 
   return (
-    <div>
-      <h1>Admin Dashboard</h1>
-      <p>Total Users: {analytics.length}</p>
+    <div className="container mx-auto p-8">
+      <h1 className="text-3xl font-bold mb-6">Admin Dashboard</h1>
+      <p className="mb-4">Total Users: {analytics.length}</p>
 
-      <h2>User Details</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>User ID</th>
-            <th>Email</th>
-            <th>Status</th>
-            <th>Resume Count</th>
-            <th>Active Resume ID</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody>
-          {analytics.map((user) => (
-            <tr key={user.id}>
-              <td>{user.id}</td>
-              <td>{user.email || 'N/A'}</td>
-              <td>{user.status || 'active'}</td>
-              <td>{user.resume_count}</td>
-              <td>{user.active_resume_id || 'None'}</td>
-              <td>
-                {user.status !== 'banned' && (
-                  <button onClick={() => handleBanUser(user.id)} disabled={user.id === user?.id}>
-                    Ban
-                  </button>
-                )}
-                <button onClick={() => handleDeleteUser(user.id)} disabled={user.id === user?.id} style={{ marginLeft: '5px', color: 'red' }}>
-                  Delete
-                </button>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <h2 className="text-2xl font-semibold mb-4">User Details</h2>
+      <div className="overflow-x-auto">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>User ID</TableHead>
+              <TableHead>Email</TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Resume Count</TableHead>
+              <TableHead>Active Resume ID</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {analytics.map((user) => (
+              <TableRow key={user.id}>
+                <TableCell className="font-mono text-sm">{user.id}</TableCell>
+                <TableCell>{user.email || 'N/A'}</TableCell>
+                <TableCell>{user.full_name || 'N/A'}</TableCell>
+                <TableCell>{user.status || 'active'}</TableCell>
+                <TableCell>{user.resume_count}</TableCell>
+                <TableCell className="font-mono text-sm">{user.active_resume_id || 'None'}</TableCell>
+                <TableCell>
+                  {user.status !== 'banned' && (
+                    <Button 
+                      onClick={() => handleBanUser(user.id)} 
+                      disabled={user.id === user?.id}
+                      variant="outline"
+                      className="mr-2"
+                    >
+                      Ban
+                    </Button>
+                  )}
+                  <Button 
+                    onClick={() => handleDeleteUser(user.id)} 
+                    disabled={user.id === user?.id} 
+                    variant="destructive"
+                  >
+                    Delete
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }
