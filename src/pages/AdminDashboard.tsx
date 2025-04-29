@@ -1,6 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../integrations/supabase/client'; // Adjust path
 import { User } from '@supabase/supabase-js';
+import { useAuth } from '@/hooks/use-auth';
 
 // Define interfaces for the data you expect
 interface UserProfile {
@@ -19,21 +21,19 @@ function AdminDashboard() {
   const [analytics, setAnalytics] = useState<UserAnalytics[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const { user, isAdmin } = useAuth();
 
   useEffect(() => {
-    // Check if the logged-in user is the admin
-    const checkAdmin = async () => {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user && user.email === 'admin@jobmatch.com') {
-            setCurrentUser(user);
-            fetchAnalytics();
-        } else {
-            // Redirect non-admins away (or show an error)
-            setError("Access Denied. You are not authorized to view this page.");
-            setLoading(false);
-            // Optionally redirect: navigate('/dashboard');
-        }
+    // Check if the logged-in user is admin
+    const checkAndFetch = async () => {
+      if (user && isAdmin) {
+        fetchAnalytics();
+      } else {
+        // Redirect non-admins away (or show an error)
+        setError("Access Denied. You are not authorized to view this page.");
+        setLoading(false);
+        // Optionally redirect: navigate('/dashboard');
+      }
     };
 
     const fetchAnalytics = async () => {
@@ -69,45 +69,45 @@ function AdminDashboard() {
       }
     };
 
-    checkAdmin();
+    checkAndFetch();
 
-  }, []); // Run once on mount
+  }, [user, isAdmin]); // Run when user or isAdmin changes
 
   const handleBanUser = async (userId: string) => {
     if (!window.confirm(`Are you sure you want to ban user ${userId}?`)) return;
     try {
-        // Example using RPC:
-        const { error } = await supabase.rpc('ban_user', { target_user_id: userId });
-        // Or direct update if RLS allows:
-        // const { error } = await supabase.from('profiles').update({ status: 'banned' }).eq('id', userId);
-        if (error) throw error;
-        // Refresh data or update state locally
-        setAnalytics(prev => prev.map(u => u.id === userId ? { ...u, status: 'banned' } : u));
-        alert('User banned successfully.');
+      // Example using RPC:
+      const { error } = await supabase.rpc('ban_user', { target_user_id: userId });
+      // Or direct update if RLS allows:
+      // const { error } = await supabase.from('profiles').update({ status: 'banned' }).eq('id', userId);
+      if (error) throw error;
+      // Refresh data or update state locally
+      setAnalytics(prev => prev.map(u => u.id === userId ? { ...u, status: 'banned' } : u));
+      alert('User banned successfully.');
     } catch (err: any) {
-        alert(`Failed to ban user: ${err.message}`);
+      alert(`Failed to ban user: ${err.message}`);
     }
   };
 
   const handleDeleteUser = async (userId: string) => {
-     if (!window.confirm(`Are you sure you want to DELETE user ${userId}? This is irreversible.`)) return;
-     try {
-        // IMPORTANT: Deleting from auth.users requires service_role key or specific setup.
-        // Usually done via a Supabase Function running with elevated privileges.
-        const { error } = await supabase.rpc('delete_user_data', { target_user_id: userId });
-        if (error) throw error;
-        // Refresh data or update state locally
-        setAnalytics(prev => prev.filter(u => u.id !== userId));
-        alert('User deleted successfully.');
-     } catch (err: any) {
-        alert(`Failed to delete user: ${err.message}`);
-     }
+    if (!window.confirm(`Are you sure you want to DELETE user ${userId}? This is irreversible.`)) return;
+    try {
+      // IMPORTANT: Deleting from auth.users requires service_role key or specific setup.
+      // Usually done via a Supabase Function running with elevated privileges.
+      const { error } = await supabase.rpc('delete_user_data', { target_user_id: userId });
+      if (error) throw error;
+      // Refresh data or update state locally
+      setAnalytics(prev => prev.filter(u => u.id !== userId));
+      alert('User deleted successfully.');
+    } catch (err: any) {
+      alert(`Failed to delete user: ${err.message}`);
+    }
   };
 
 
   if (loading) return <div>Loading admin data...</div>;
   if (error) return <div style={{ color: 'red' }}>Error: {error}</div>;
-  if (!currentUser) return <div>Authenticating...</div>; // Should be handled by checkAdmin redirect/error
+  if (!user || !isAdmin) return <div>Unauthorized access</div>; // Extra security check
 
   return (
     <div>
@@ -136,13 +136,13 @@ function AdminDashboard() {
               <td>{user.active_resume_id || 'None'}</td>
               <td>
                 {user.status !== 'banned' && (
-                  <button onClick={() => handleBanUser(user.id)} disabled={user.id === currentUser.id}>
+                  <button onClick={() => handleBanUser(user.id)} disabled={user.id === user?.id}>
                     Ban
                   </button>
                 )}
-                 <button onClick={() => handleDeleteUser(user.id)} disabled={user.id === currentUser.id} style={{ marginLeft: '5px', color: 'red' }}>
-                    Delete
-                 </button>
+                <button onClick={() => handleDeleteUser(user.id)} disabled={user.id === user?.id} style={{ marginLeft: '5px', color: 'red' }}>
+                  Delete
+                </button>
               </td>
             </tr>
           ))}

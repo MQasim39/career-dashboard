@@ -37,6 +37,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     
     try {
       console.log('Checking admin status for user:', user.id);
+      
+      // First, check if this is the predefined admin email
+      if (user.email === 'admin@jobmatch.com') {
+        console.log('Admin email detected');
+        setIsAdmin(true);
+        return true;
+      }
+      
+      // If not the predefined admin, check the database role
       const { data, error } = await supabase.rpc('is_admin', { uid: user.id });
       
       if (error) {

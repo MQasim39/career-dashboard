@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import { z } from "zod";
@@ -16,12 +17,10 @@ import {
 import { Input } from "@/components/ui/input";
 import { useAuth } from "@/hooks/use-auth";
 import { Loader2 } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email"),
   password: z.string().min(8, "Password must be at least 8 characters"),
-  isAdmin: z.boolean().default(false),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -36,7 +35,6 @@ const Login = () => {
     defaultValues: {
       email: "",
       password: "",
-      isAdmin: false,
     },
   });
 
@@ -44,6 +42,7 @@ const Login = () => {
     try {
       setIsSubmitting(true);
       await signIn(data.email, data.password);
+      // The redirection will be handled in the useAuth hook based on the user's role
     } catch (error) {
       console.error("Login error:", error);
     } finally {
@@ -126,13 +125,6 @@ const Login = () => {
                 </FormItem>
               )}
             />
-            <div className="flex items-center space-x-2">
-              <span className="text-sm text-muted-foreground">Admin login?</span>
-              <Switch
-                checked={form.watch("isAdmin")}
-                onCheckedChange={(checked) => form.setValue("isAdmin", checked)}
-              />
-            </div>
             <Button
               type="submit"
               className="w-full"
